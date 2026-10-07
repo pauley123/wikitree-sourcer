@@ -46,6 +46,13 @@ function getPlaceString(gd) {
   return "";
 }
 
+function getFullResidence(ed, gd) {
+  if (gd.residencePlace && gd.residencePlace.placeString) {
+    return gd.residencePlace.placeString;
+  }
+  return ed.residence ? ed.residence.replace(/[\s.,]+$/, "") : "";
+}
+
 function getAgeString(gd) {
   return gd.ageAtDeath ? gd.ageAtDeath : "";
 }
@@ -148,7 +155,7 @@ function buildDataList(ed, gd, builder) {
     { key: "Date of Burial", value: ed.burialDate },
     { key: "Disease", value: ed.disease },
     { key: "Rank, Trade, or Profession", value: ed.trade },
-    { key: "Residence", value: ed.residence },
+    { key: "Residence", value: getFullResidence(ed, gd) },
     { key: "Where Born", value: ed.whereBorn },
     { key: "Parents", value: ed.parentsNames },
     { key: "Addition of Father or Mother", value: ed.parentsOccupation },
@@ -205,8 +212,8 @@ function buildNarrativeText(ed, gd, options) {
   }
   narrative += ".";
 
-  if (ed.residence) {
-    const residence = ed.residence.replace(/\.+$/, "");
+  const residence = getFullResidence(ed, gd);
+  if (residence) {
     narrative += " " + getPossessivePronoun(ed) + " last residence was " + residence + ".";
   }
 

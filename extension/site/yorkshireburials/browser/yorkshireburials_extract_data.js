@@ -42,6 +42,7 @@ const fieldLabels = {
     "first names",
   ],
   sex: ["sex", "gender"],
+  eventType: ["event type"],
   burialDate: ["date of burial", "burial date", "date buried", "event date", "date"],
   deathDate: ["date of death", "death date", "died"],
   age: ["age", "age at death"],
@@ -101,7 +102,8 @@ function cleanText(inputText) {
 function cleanLabel(inputText) {
   let label = cleanText(inputText);
   if (label) {
-    label = label.replace(/\s*:$/, "");
+    // Record page labels end in a full stop, e.g. "Date of Death." or "No. of Grave."
+    label = label.replace(/\s*[:.]+$/, "");
   }
   return label;
 }
@@ -489,7 +491,8 @@ function extractNameFromHeading(container) {
   const genericHeadingWords = /yorkshire burials|burial record|record details|search|report/i;
   const headings = container.querySelectorAll("h1, h2");
   for (let heading of headings) {
-    const text = cleanText(heading.textContent);
+    // e.g. "Burial Record: Alan SMITH"
+    const text = cleanText(heading.textContent).replace(/^burial record\s*:\s*/i, "");
     if (text && !genericHeadingWords.test(text)) {
       return text;
     }
