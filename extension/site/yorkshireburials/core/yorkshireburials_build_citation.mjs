@@ -23,6 +23,7 @@ SOFTWARE.
 */
 
 import { CitationBuilder } from "../../../base/core/citation_builder.mjs";
+import { RT } from "../../../base/core/record_type.mjs";
 import { NameUtils } from "../../../base/core/name_utils.mjs";
 import { StringUtils } from "../../../base/core/string_utils.mjs";
 
@@ -66,7 +67,27 @@ function formatDate(gd, dateObj, format, highlight) {
   return gd.getNarrativeDateFormat(dateObj, format, highlight, false);
 }
 
-function getPossessivePronoun(ed, gd) {
+function isCremation(gd) {
+  return gd.recordType == RT.Cremation;
+}
+
+// e.g. "Felix John BATTERSBY" becomes "Felix John Battersby"
+function getMixedCaseName(name) {
+  if (!name) {
+    return "";
+  }
+  return name
+    .split(" ")
+    .map((word) => {
+      if (word.length > 1 && StringUtils.isAllUppercase(word)) {
+        return NameUtils.convertNameFromAllCapsToMixedCase(word);
+      }
+      return word;
+    })
+    .join(" ");
+}
+
+function getSex(ed, gd) {
   let sex = ed.sex ? ed.sex.toLowerCase() : "";
   if (sex != "male" && sex != "female") {
     // Older registers have no sex column so predict it from the forenames
@@ -84,6 +105,11 @@ function getPossessivePronoun(ed, gd) {
       sex = NameUtils.predictGenderFromGivenNames(expanded.join(" "));
     }
   }
+  return sex == "male" || sex == "female" ? sex : "";
+}
+
+function getPossessivePronoun(ed, gd) {
+  const sex = getSex(ed, gd);
   if (sex == "male") {
     return "His";
   }
@@ -91,6 +117,62 @@ function getPossessivePronoun(ed, gd) {
     return "Her";
   }
   return "Their";
+}
+
+// The trade column often describes children and wives rather than giving an occupation,
+// e.g. "Boy", "Infant" or "Daughter of John Smith"
+function isOccupation(trade) {
+  if (!trade) {
+    return false;
+  }
+  return !/^(?:boy|girl|infant|child|son|daughter|wife|widow|widower|spinster|bachelor|none|male|female)\b/i.test(
+    trade
+  );
+}
+
+// e.g. "He was a widower." or "She was unmarried."
+function getMaritalStatusSentence(ed, gd) {
+  const sex = getSex(ed, gd);
+  const status = ed.maritalStatus ? ed.maritalStatus.toLowerCase() : "";
+  if (!sex || !status) {
+    return "";
+  }
+  const pronoun = sex == "male" ? "He" : "She";
+  if (/^(?:widower|widow|bachelor|spinster)$/.test(status)) {
+    return pronoun + " was a " + status + ".";
+  }
+  if (/^(?:married|unmarried|single|widowed|divorced)$/.test(status)) {
+    return pronoun + " was " + status + ".";
+  }
+  return "";
+}
+
+// e.g. "His ashes were removed to be interred at Penshaw church, Co. Durh."
+function getAshesSentence(ed, gd) {
+  const disposal = ed.ashesDisposal ? ed.ashesDisposal.replace(/[\s.]+$/, "") : "";
+  if (!disposal) {
+    return "";
+  }
+  if (/^[a-z]+ed\b/.test(disposal)) {
+    return getPossessivePronoun(ed, gd) + " ashes were " + disposal + ".";
+  }
+  return "The disposal of the ashes was recorded as: " + disposal + ".";
+}
+
+// e.g. "Felix John Battersby (executor) of Watendlath, Tinshill Lane, Horsforth"
+function getApplicantString(ed) {
+  if (!ed.applicantName) {
+    return "";
+  }
+  let applicant = getMixedCaseName(ed.applicantName);
+  const details = [ed.applicantRelation, ed.applicantOccupation].filter(Boolean);
+  if (details.length) {
+    applicant += " (" + details.join(", ") + ")";
+  }
+  if (ed.applicantAddress) {
+    applicant += " of " + ed.applicantAddress.replace(/[\s.,]+$/, "");
+  }
+  return applicant;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -135,14 +217,20 @@ function buildDataSentence(ed, gd, builder) {
   const options = builder.getOptions();
   const dateFormat = options.citation_general_dataStringDateFormat;
 
-  let dataString = getFullName(ed, gd) + " burial";
+  let dataString = getFullName(ed, gd) + (isCremation(gd) ? " cremation" : " burial");
 
   const age = getAgeString(gd);
   const burialDate = formatDate(gd, gd.eventDate, dateFormat, false);
   const deathDate = formatDate(gd, gd.deathDate, dateFormat, false);
 
   if (burialDate) {
-    if (age) {
+    if (deathDate) {
+      dataString += " (died on " + deathDate;
+      if (age) {
+        dataString += " at age " + age;
+      }
+      dataString += ")";
+    } else if (age) {
       dataString += " (died age " + age + ")";
     }
     dataString += " on " + burialDate;
@@ -158,7 +246,7 @@ function buildDataSentence(ed, gd, builder) {
 
   const place = getPlaceString(gd);
   if (place) {
-    dataString += " in " + place;
+    dataString += (isCremation(gd) ? " at " : " in ") + place;
   }
 
   builder.dataString = dataString + ".";
@@ -171,14 +259,20 @@ function buildDataList(ed, gd, builder) {
     { key: "Age", value: ed.age },
     { key: "Date of Death", value: ed.deathDate },
     { key: "Date of Burial", value: ed.burialDate },
+    { key: "Date of Cremation", value: ed.cremationDate },
+    { key: "District where Death Registered", value: ed.deathRegistrationDistrict },
     { key: "Disease", value: ed.disease },
-    { key: "Rank, Trade, or Profession", value: ed.trade },
+    { key: "Occupation", value: ed.trade },
+    { key: "Marital Status", value: ed.maritalStatus },
     { key: "Residence", value: getFullResidence(ed, gd) },
     { key: "Where Born", value: ed.whereBorn },
     { key: "Parents", value: ed.parentsNames },
     { key: "Addition of Father or Mother", value: ed.parentsOccupation },
     { key: "Informant", value: ed.informant },
     { key: "Officiating Minister", value: ed.minister },
+    { key: "Applicant for Cremation", value: getApplicantString(ed) },
+    { key: "How Ashes were Disposed of", value: ed.ashesDisposal },
+    { key: "Receipt No.", value: ed.receiptNumber },
   ];
   builder.addListDataString(fields.filter((field) => field.value));
 }
@@ -216,23 +310,53 @@ function buildNarrativeText(ed, gd, options) {
     narrative += " (age " + age + ")";
   }
 
-  if (deathDate && burialDate) {
-    narrative += " died on " + deathDate + " and was buried on " + burialDate;
-  } else if (burialDate) {
-    narrative += " was buried on " + burialDate;
-  } else {
-    narrative += " died on " + deathDate;
+  const cremation = isCremation(gd);
+  const eventVerb = cremation ? "was cremated" : "was buried";
+  const place = getPlaceString(gd);
+  const placePreposition = cremation ? " at " : " in ";
+
+  let deathClause = "";
+  if (deathDate) {
+    deathClause = " died on " + deathDate;
+    if (ed.deathRegistrationDistrict) {
+      deathClause += " in the " + ed.deathRegistrationDistrict + " registration district";
+    }
   }
 
-  const place = getPlaceString(gd);
+  if (deathDate && burialDate) {
+    narrative += deathClause + " and " + eventVerb + " on " + burialDate;
+  } else if (burialDate) {
+    narrative += " " + eventVerb + " on " + burialDate;
+  } else if (cremation) {
+    narrative += deathClause + " and " + eventVerb;
+  } else {
+    narrative += deathClause;
+  }
+
   if (place) {
-    narrative += " in " + place;
+    narrative += placePreposition + place;
   }
   narrative += ".";
 
+  let sentences = [];
   const residence = getFullResidence(ed, gd);
   if (residence) {
-    narrative += " " + getPossessivePronoun(ed, gd) + " last residence was " + residence + ".";
+    sentences.push(getPossessivePronoun(ed, gd) + " last residence was " + residence + ".");
+  }
+  if (isOccupation(ed.trade)) {
+    sentences.push(getPossessivePronoun(ed, gd) + " occupation was " + ed.trade.replace(/[\s.]+$/, "") + ".");
+  }
+  sentences.push(getMaritalStatusSentence(ed, gd));
+  sentences.push(getAshesSentence(ed, gd));
+  const applicant = getApplicantString(ed);
+  if (applicant) {
+    sentences.push("The cremation was applied for by " + applicant + ".");
+  }
+
+  for (let sentence of sentences) {
+    if (sentence) {
+      narrative += " " + sentence;
+    }
   }
 
   return narrative;
