@@ -119,46 +119,6 @@ function getPossessivePronoun(ed, gd) {
   return "Their";
 }
 
-// The trade column often describes children and wives rather than giving an occupation,
-// e.g. "Boy", "Infant" or "Daughter of John Smith"
-function isOccupation(trade) {
-  if (!trade) {
-    return false;
-  }
-  return !/^(?:boy|girl|infant|child|son|daughter|wife|widow|widower|spinster|bachelor|none|male|female)\b/i.test(
-    trade
-  );
-}
-
-// e.g. "He was a widower." or "She was unmarried."
-function getMaritalStatusSentence(ed, gd) {
-  const sex = getSex(ed, gd);
-  const status = ed.maritalStatus ? ed.maritalStatus.toLowerCase() : "";
-  if (!sex || !status) {
-    return "";
-  }
-  const pronoun = sex == "male" ? "He" : "She";
-  if (/^(?:widower|widow|bachelor|spinster)$/.test(status)) {
-    return pronoun + " was a " + status + ".";
-  }
-  if (/^(?:married|unmarried|single|widowed|divorced)$/.test(status)) {
-    return pronoun + " was " + status + ".";
-  }
-  return "";
-}
-
-// e.g. "His ashes were removed to be interred at Penshaw church, Co. Durh."
-function getAshesSentence(ed, gd) {
-  const disposal = ed.ashesDisposal ? ed.ashesDisposal.replace(/[\s.]+$/, "") : "";
-  if (!disposal) {
-    return "";
-  }
-  if (/^[a-z]+ed\b/.test(disposal)) {
-    return getPossessivePronoun(ed, gd) + " ashes were " + disposal + ".";
-  }
-  return "The disposal of the ashes was recorded as: " + disposal + ".";
-}
-
 // e.g. "Felix John Battersby (executor) of Watendlath, Tinshill Lane, Horsforth"
 function getApplicantString(ed) {
   if (!ed.applicantName) {
@@ -213,8 +173,7 @@ function buildRecordLink(ed, gd, builder) {
 }
 
 // e.g. "Alan Smith burial (died age 41) on 20 Apr 1875 in Beckett Street Cemetery, Leeds, Yorkshire, England."
-function buildDataSentence(ed, gd, builder) {
-  const options = builder.getOptions();
+function getEventSentence(ed, gd, options) {
   const dateFormat = options.citation_general_dataStringDateFormat;
 
   let dataString = getFullName(ed, gd) + (isCremation(gd) ? " cremation" : " burial");
@@ -248,7 +207,12 @@ function buildDataSentence(ed, gd, builder) {
   if (place) {
     dataString += (isCremation(gd) ? " at " : " in ") + place;
   }
-  dataString += ".";
+  return dataString + ".";
+}
+
+function buildDataSentence(ed, gd, builder) {
+  const options = builder.getOptions();
+  let dataString = getEventSentence(ed, gd, options);
 
   if (options.citation_yorkshireburials_includeAdditionalDetails) {
     const details = getAdditionalDetails(ed, gd);
@@ -333,72 +297,23 @@ function buildDataString(ed, gd, builder) {
 // Narrative
 ////////////////////////////////////////////////////////////////////////////////
 
-// e.g. "Alan Smith (age 41) died on 16 April 1875 and was buried on 20 April 1875 in
-// Beckett Street Cemetery, Leeds, Yorkshire, England. His last residence was Cavalier Street."
+// The other details are only included in the citation, e.g.
+// "Alan Smith burial (died on 16 Apr 1875 at age 41) on 20 Apr 1875 in Beckett Street Cemetery, Leeds,
+// Yorkshire, England. Cause of death: Phthisis. His last residence was Cavalier Street, Leeds, Yorkshire, England."
 function buildNarrativeText(ed, gd, options) {
-  const dateFormat = options.narrative_general_dateFormat;
-  const highlight = options.narrative_general_dateHighlight;
-
-  const burialDate = formatDate(gd, gd.eventDate, dateFormat, highlight);
-  const deathDate = formatDate(gd, gd.deathDate, dateFormat, highlight);
-  if (!burialDate && !deathDate) {
+  if (!gd.eventDate && !gd.deathDate) {
     return "";
   }
 
-  let narrative = getFullName(ed, gd);
+  let narrative = getEventSentence(ed, gd, options);
 
-  const age = getAgeString(gd);
-  if (age) {
-    narrative += " (age " + age + ")";
+  if (ed.disease) {
+    narrative += " Cause of death: " + ed.disease.replace(/[\s.]+$/, "") + ".";
   }
 
-  const cremation = isCremation(gd);
-  const eventVerb = cremation ? "was cremated" : "was buried";
-  const place = getPlaceString(gd);
-  const placePreposition = cremation ? " at " : " in ";
-
-  let deathClause = "";
-  if (deathDate) {
-    deathClause = " died on " + deathDate;
-    if (ed.deathRegistrationDistrict) {
-      deathClause += " in the " + ed.deathRegistrationDistrict + " registration district";
-    }
-  }
-
-  if (deathDate && burialDate) {
-    narrative += deathClause + " and " + eventVerb + " on " + burialDate;
-  } else if (burialDate) {
-    narrative += " " + eventVerb + " on " + burialDate;
-  } else if (cremation) {
-    narrative += deathClause + " and " + eventVerb;
-  } else {
-    narrative += deathClause;
-  }
-
-  if (place) {
-    narrative += placePreposition + place;
-  }
-  narrative += ".";
-
-  let sentences = [];
   const residence = getFullResidence(ed, gd);
   if (residence) {
-    sentences.push(getPossessivePronoun(ed, gd) + " last residence was " + residence + ".");
-  }
-  if (isOccupation(ed.trade)) {
-    sentences.push(getPossessivePronoun(ed, gd) + " occupation was " + ed.trade.replace(/[\s.]+$/, "") + ".");
-  }
-  sentences.push(getMaritalStatusSentence(ed, gd));
-  sentences.push(getAshesSentence(ed, gd));
-  const applicant = getApplicantString(ed);
-  if (applicant) {
-    sentences.push("The cremation was applied for by " + applicant + ".");
-  }
-
-  for (let sentence of sentences) {
-    if (sentence) {
-      narrative += " " + sentence;
-    }
+    narrative += " " + getPossessivePronoun(ed, gd) + " last residence was " + residence + ".";
   }
 
   return narrative;
