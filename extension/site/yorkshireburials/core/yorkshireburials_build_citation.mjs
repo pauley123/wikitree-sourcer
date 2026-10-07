@@ -79,7 +79,7 @@ function getMixedCaseName(name) {
   return name
     .split(" ")
     .map((word) => {
-      if (word.length > 1 && StringUtils.isAllUppercase(word)) {
+      if (/^[A-Z][A-Z'’-]*[A-Z]$/.test(word)) {
         return NameUtils.convertNameFromAllCapsToMixedCase(word);
       }
       return word;
@@ -248,8 +248,50 @@ function buildDataSentence(ed, gd, builder) {
   if (place) {
     dataString += (isCremation(gd) ? " at " : " in ") + place;
   }
+  dataString += ".";
 
-  builder.dataString = dataString + ".";
+  if (options.citation_yorkshireburials_includeAdditionalDetails) {
+    const details = getAdditionalDetails(ed, gd);
+    if (details.length) {
+      const useBreaks = options.citation_general_target == "wikitree" && options.citation_general_addBreaksWithinBody;
+      let separator = useBreaks ? "<br/>" : "; ";
+      if (useBreaks && builder.type != "source" && options.citation_general_addNewlinesWithinBody) {
+        separator += "\n";
+      }
+      dataString += (useBreaks ? separator : " ") + details.join(separator);
+    }
+  }
+
+  builder.dataString = dataString;
+}
+
+function getParentsString(ed) {
+  if (!ed.parentsNames) {
+    return "";
+  }
+  let parents = getMixedCaseName(ed.parentsNames);
+  if (ed.parentsOccupation) {
+    parents += " (" + ed.parentsOccupation + ")";
+  }
+  return parents;
+}
+
+// e.g. ["Parents' names: James & Jane Ellen Holmes (Iron Founder)", "Where born: Leeds"]
+function getAdditionalDetails(ed, gd) {
+  const fields = [
+    { label: "Parents' names", value: getParentsString(ed) },
+    { label: "Where born", value: ed.whereBorn },
+    { label: "Residence", value: getFullResidence(ed, gd) },
+    { label: "Disease", value: ed.disease },
+    { label: "Rank/Profession", value: ed.trade },
+    { label: "Marital status", value: ed.maritalStatus },
+    { label: "Death registered in", value: ed.deathRegistrationDistrict },
+    { label: "Ashes", value: ed.ashesDisposal },
+    { label: "Applicant", value: getApplicantString(ed) },
+    { label: "Informant", value: getMixedCaseName(ed.informant) },
+    { label: "Minister", value: ed.minister },
+  ];
+  return fields.filter((field) => field.value).map((field) => field.label + ": " + field.value);
 }
 
 function buildDataList(ed, gd, builder) {

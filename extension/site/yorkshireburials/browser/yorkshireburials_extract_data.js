@@ -93,6 +93,7 @@ const fieldLabels = {
   ],
   informant: ["signature of informant", "informant"],
   minister: ["officiating minister", "minister", "by whom buried", "ceremony performed by"],
+  transcriberNotes: ["transcriber's notes", "transcriber’s notes", "transcriber notes", "notes"],
 };
 
 const ignoredLabels = ["no. buried this year", "no buried this year", "uuid"];
@@ -319,11 +320,21 @@ function setStandardFields(result) {
     "applicantAddress",
     "applicantRelation",
     "receiptNumber",
+    "transcriberNotes",
   ];
   for (let fieldName of simpleFields) {
     let value = getRecordDataValueForField(recordData, fieldName);
     if (value) {
       result[fieldName] = value;
+    }
+  }
+
+  if (!result.informant && result.transcriberNotes) {
+    // The informant is sometimes only in the notes, e.g. "Informants Signature: A. Bagshaw"
+    const informantRegex = /(?:informant'?s?\s+signature|signature\s+of\s+informant|informant)\s*:\s*([^;\n]+)/i;
+    const informantMatch = result.transcriberNotes.match(informantRegex);
+    if (informantMatch) {
+      result.informant = cleanText(informantMatch[1]).replace(/[.,]$/, "");
     }
   }
 
@@ -521,6 +532,21 @@ function extractLabelValuePairsFromBoldLabels(container, result) {
   }
 }
 
+// The notes are in the separate "Transcription Details" table
+function extractTranscriberNotes(container, recordTable, result) {
+  for (let table of container.querySelectorAll("table")) {
+    if (table == recordTable) {
+      continue;
+    }
+    for (let row of getTableRows(table)) {
+      const cells = getRowCells(row);
+      if (cells.length == 2 && fieldLabels.transcriberNotes.includes(cleanLabel(cells[0].textContent).toLowerCase())) {
+        addRecordDataValue(result, cells[0].textContent, getCellText(cells[1], cells[0].textContent));
+      }
+    }
+  }
+}
+
 function extractNameFromHeading(container) {
   const genericHeadingWords = /yorkshire burials|burial record|cremation record|record details|search|report/i;
   const headings = container.querySelectorAll("h1, h2");
@@ -546,6 +572,7 @@ function extractDataFromRecordPage(document, result) {
   const recordTable = findRecordTable(container);
   if (recordTable) {
     extractLabelValuePairsFromTable(recordTable, result);
+    extractTranscriberNotes(container, recordTable, result);
   } else {
     extractLabelValuePairsFromTables(container, result);
     extractLabelValuePairsFromDefinitionLists(container, result);
