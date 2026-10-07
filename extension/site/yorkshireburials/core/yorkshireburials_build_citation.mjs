@@ -172,42 +172,35 @@ function buildRecordLink(ed, gd, builder) {
   builder.recordLinkOrTemplate = "[" + yorkshireburialsUrl + " " + linkText + "]";
 }
 
-// e.g. "Alan Smith burial (died age 41) on 20 Apr 1875 in Beckett Street Cemetery, Leeds, Yorkshire, England."
+// e.g. "Annie Bagshaw died on 31 Oct 1918 at age 29, and was buried on 4 Nov 1918 in Leeds General Cemetery
+// (Woodhouse), Leeds, Yorkshire, England." or, with no death date,
+// "John Smith was buried on 20 Apr 1875 at age 41 in Beckett Street Cemetery, Leeds, Yorkshire, England."
 function getEventSentence(ed, gd, options) {
   const dateFormat = options.citation_general_dataStringDateFormat;
-
-  let dataString = getFullName(ed, gd) + (isCremation(gd) ? " cremation" : " burial");
+  const cremation = isCremation(gd);
 
   const age = getAgeString(gd);
-  const burialDate = formatDate(gd, gd.eventDate, dateFormat, false);
+  const ageString = age ? " at age " + age : "";
+  const eventDate = formatDate(gd, gd.eventDate, dateFormat, false);
   const deathDate = formatDate(gd, gd.deathDate, dateFormat, false);
 
-  if (burialDate) {
-    if (deathDate) {
-      dataString += " (died on " + deathDate;
-      if (age) {
-        dataString += " at age " + age;
-      }
-      dataString += ")";
-    } else if (age) {
-      dataString += " (died age " + age + ")";
-    }
-    dataString += " on " + burialDate;
-  } else if (deathDate) {
-    dataString += " (died on " + deathDate;
-    if (age) {
-      dataString += " at age " + age;
-    }
-    dataString += ")";
-  } else if (age) {
-    dataString += " (died age " + age + ")";
+  let sentence = getFullName(ed, gd);
+  let eventClause = cremation ? "was cremated" : "was buried";
+  if (eventDate) {
+    eventClause += " on " + eventDate;
+  }
+
+  if (deathDate) {
+    sentence += " died on " + deathDate + ageString + ", and " + eventClause;
+  } else {
+    sentence += " " + eventClause + ageString;
   }
 
   const place = getPlaceString(gd);
   if (place) {
-    dataString += (isCremation(gd) ? " at " : " in ") + place;
+    sentence += (cremation ? " at " : " in ") + place;
   }
-  return dataString + ".";
+  return sentence + ".";
 }
 
 function buildDataSentence(ed, gd, builder) {
