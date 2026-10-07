@@ -4,7 +4,7 @@
   "recordType": "Burial",
   "name": {
     "lastName": "Smith",
-    "forenames": "John"
+    "forenames": "Alan"
   },
   "personGender": "male",
   "eventDate": {
@@ -20,5 +20,6 @@
     "dateString": "16 April 1875"
   },
   "ageAtDeath": "41",
+  "occupation": "Labourer",
   "hasValidData": true
 }

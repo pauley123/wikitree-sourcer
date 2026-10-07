@@ -122,6 +122,13 @@ class YorkshireburialsEdReader extends ExtractedDataReader {
     return undefined;
   }
 
+  getBirthPlaceObj() {
+    if (this.ed.whereBorn) {
+      return this.makePlaceObjFromFullPlaceName(getCorrectlyCasedPlaceName(this.ed.whereBorn));
+    }
+    return undefined;
+  }
+
   getAgeAtDeath() {
     let age = this.ed.age;
     if (!age) {
