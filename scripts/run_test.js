@@ -62,6 +62,7 @@ const siteNames = [
   "irishg",
   "itcadgg",
   "jstor",
+  "londonlocations",
   "matricula",
   "mdz",
   "mh",

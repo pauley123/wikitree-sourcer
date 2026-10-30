@@ -485,6 +485,10 @@ async function determineSiteNameForTab(activeTab) {
   if (siteRegistry) {
     for (let siteName of Object.keys(siteRegistry)) {
       let siteData = siteRegistry[siteName];
+      // London Locations is a picker with no host, so it has no matches.
+      if (!siteData || !siteData.matches) {
+        continue;
+      }
       for (let match of siteData.matches) {
         let doesTabMatch = doesUrlMatchChromePattern(match, url);
         if (doesTabMatch) {

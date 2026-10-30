@@ -69,6 +69,7 @@ import "../../hathi/core/hathi_site_data.mjs";
 import "../../irishg/core/irishg_site_data.mjs";
 import "../../itcadgg/core/itcadgg_site_data.mjs";
 import "../../jstor/core/jstor_site_data.mjs";
+import "../../londonlocations/core/londonlocations_site_data.mjs";
 import "../../matricula/core/matricula_site_data.mjs";
 import "../../mdz/core/mdz_site_data.mjs";
 import "../../mh/core/mh_site_data.mjs";

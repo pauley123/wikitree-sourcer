@@ -462,3 +462,48 @@ dd.truncate {
   text-overflow: ellipsis; /* Adds the '...' */
   min-width: 0; /* Essential: allows the flex/grid child to shrink below its content size */
 }
+
+.londonLocLabel {
+  display: flex;
+  flex-direction: column;
+  margin: 6px 10px;
+}
+.londonLocInput {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 2px;
+}
+.londonLocList {
+  max-height: 150px;
+  overflow-y: auto;
+  margin: 0 10px 6px 10px;
+}
+.londonLocChoice {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 1px 0;
+}
+.londonLocChoice.selected {
+  font-weight: bold;
+}
+.londonLocNote {
+  margin: 0 10px 6px 10px;
+  font-style: italic;
+}
+.londonLocResult {
+  margin: 8px 10px;
+  padding-top: 4px;
+  border-top: 1px solid #c8c8c8;
+}
+.londonLocHeading {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 2px;
+}
+.londonLocLine {
+  margin: 2px 0 6px 0;
+}
+.londonLocButtons {
+  margin-left: 6px;
+}

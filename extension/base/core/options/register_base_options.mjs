@@ -199,6 +199,7 @@ const searchOptionsGroup = {
         "hathi",
         "jstor",
         "wikipedia",
+        "londonlocations",
       ],
     },
   ],
