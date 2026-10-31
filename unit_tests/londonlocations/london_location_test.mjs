@@ -470,8 +470,24 @@ async function runTests(testManager) {
   check(
     testManager,
     "uk on biography",
-    single(withUk).narrative === "St Pancras, Middlesex, United Kingdom",
+    single(withUk).narrative === "St Pancras, Middlesex, England, United Kingdom",
     single(withUk).narrative
+  );
+  const deptford = buildOutputs(row("Deptford"), "1 Jan 1900", false, { includeUnitedKingdom: true });
+  check(
+    testManager,
+    "deptford narrative with uk",
+    single(deptford).narrative === "Deptford, London, England, United Kingdom" &&
+      single(outputs("Deptford", "1 Jan 1900")).narrative === "Deptford, London",
+    single(deptford).narrative
+  );
+  const bishopsgateUk = buildOutputs(row("Bishopsgate"), "1 Jan 1815", false, { includeUnitedKingdom: true });
+  check(
+    testManager,
+    "city narrative with uk",
+    single(bishopsgateUk).narrative === "Bishopsgate in the City of London, England, United Kingdom" &&
+      single(outputs("Bishopsgate", "1 Jan 1815")).narrative === "Bishopsgate in the City of London",
+    single(bishopsgateUk).narrative
   );
   check(testManager, "uk on has no warning", !withUk.options[0].ukNote, withUk.options[0].ukNote);
 

@@ -385,14 +385,19 @@ function formatLocation(label, county) {
   return label + ", " + county + ", England";
 }
 
-function formatNarrative(label, county) {
+function formatNarrative(label, county, includeUnitedKingdom) {
   if (county === "City of London") {
-    if (label === "City of London") {
-      return "the City of London";
+    let text = label === "City of London" ? "the City of London" : label + " in the City of London";
+    if (includeUnitedKingdom) {
+      text += ", England, United Kingdom";
     }
-    return label + " in the City of London";
+    return text;
   }
-  return label + ", " + county;
+  let text = label + ", " + county;
+  if (includeUnitedKingdom) {
+    text += ", England, United Kingdom";
+  }
+  return text;
 }
 
 const UNITED_KINGDOM_START = 18010101;
@@ -427,10 +432,9 @@ function variantFor(row, county, registration, includeUnitedKingdom) {
   const label = placeLabel(row, registration);
   const category = categoryFor(row, county);
   let location = formatLocation(label, county);
-  let narrative = formatNarrative(label, county);
+  const narrative = formatNarrative(label, county, includeUnitedKingdom);
   if (includeUnitedKingdom) {
     location = location + ", United Kingdom";
-    narrative = narrative + ", United Kingdom";
   }
   return {
     county: county,

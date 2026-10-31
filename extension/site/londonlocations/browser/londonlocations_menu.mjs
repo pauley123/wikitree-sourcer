@@ -34,11 +34,85 @@ import {
   filterRows,
   rowLabel,
   matchPlaceString,
+  SEARCH_MENU_LABEL,
   buildOutputs,
   profileEvents,
   hasProfileEvents,
   canFillWikiTreeEdit,
 } from "../core/london_location.mjs";
+
+const FORM_STORAGE_KEY = "londonLocationsForm";
+
+function formStorage() {
+  if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.session) {
+    return chrome.storage.session;
+  }
+  if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+    return chrome.storage.local;
+  }
+  return null;
+}
+
+function saveFormState(state) {
+  const area = formStorage();
+  if (!area) {
+    return;
+  }
+  area.set({ [FORM_STORAGE_KEY]: state });
+}
+
+function loadFormState() {
+  const area = formStorage();
+  if (!area) {
+    return Promise.resolve(null);
+  }
+  return new Promise(function (resolve) {
+    area.get(FORM_STORAGE_KEY, function (value) {
+      resolve(value ? value[FORM_STORAGE_KEY] : null);
+    });
+  });
+}
+
+function clearFormState() {
+  const area = formStorage();
+  if (!area) {
+    return;
+  }
+  area.remove(FORM_STORAGE_KEY);
+}
+
+let otherToolListener = null;
+
+function armClearWhenAnotherToolIsChosen() {
+  if (otherToolListener) {
+    document.removeEventListener("click", otherToolListener, true);
+  }
+  otherToolListener = function (event) {
+    const button = event.target && event.target.closest ? event.target.closest("button") : null;
+    if (!button) {
+      return;
+    }
+    const text = (button.innerText || "").replace(/\s+/g, " ").trim();
+    if (text === SEARCH_MENU_LABEL || text === "< Back") {
+      if (text === SEARCH_MENU_LABEL) {
+        document.removeEventListener("click", otherToolListener, true);
+        otherToolListener = null;
+      }
+      return;
+    }
+    if (!button.classList.contains("menuButton") && !button.classList.contains("dialogButton")) {
+      return;
+    }
+    document.removeEventListener("click", otherToolListener, true);
+    otherToolListener = null;
+    clearFormState();
+  };
+  setTimeout(function () {
+    if (otherToolListener) {
+      document.addEventListener("click", otherToolListener, true);
+    }
+  }, 0);
+}
 
 const MAX_SUGGESTIONS = 40;
 
@@ -194,15 +268,31 @@ function addOutputLine(parent, heading, text) {
   return wrap;
 }
 
-function renderOutputs(results, row, dateText, registration, includeUnitedKingdom, allowFill) {
+function renderOutputs(results, row, dateText, registration, includeUnitedKingdom, allowFill, onUnitedKingdomChange) {
   const keptSelect = results.querySelector("select");
   const selectedField = keptSelect ? keptSelect.value : "";
   results.replaceChildren();
+
+  const rule = document.createElement("hr");
+  rule.className = "londonLocRule";
+  results.appendChild(rule);
 
   const heading = document.createElement("div");
   heading.className = "londonLocHeading";
   heading.textContent = "Result";
   results.appendChild(heading);
+
+  const ukLabel = document.createElement("label");
+  ukLabel.className = "londonLocCheck";
+  const ukBox = document.createElement("input");
+  ukBox.type = "checkbox";
+  ukBox.checked = includeUnitedKingdom;
+  ukBox.addEventListener("change", function () {
+    onUnitedKingdomChange(ukBox.checked);
+  });
+  ukLabel.appendChild(ukBox);
+  ukLabel.appendChild(document.createTextNode("Include United Kingdom (from 1801)"));
+  results.appendChild(ukLabel);
 
   const fillLabel = document.createElement("label");
   fillLabel.className = "londonLocCheck";
@@ -303,7 +393,7 @@ function renderOutputs(results, row, dateText, registration, includeUnitedKingdo
         categoryLine.appendChild(note);
       }
       block.appendChild(categoryLine);
-      addOutputLine(block, "Biography", variant.narrative);
+      addOutputLine(block, "Bio Narrative", variant.narrative);
     }
     results.appendChild(block);
   }
@@ -330,11 +420,15 @@ async function setupLondonLocationsMenu(data, backFunction) {
   const previousWidth = overrideMenuWidth("540px");
   const events = await loadEvents(data);
   const allowFill = canFillWikiTreeEdit(data);
-  const edits = {};
-  let marriageIndex = 0;
+  const savedForm = await loadFormState();
+  const edits = (savedForm && savedForm.edits) || {};
+  let marriageIndex = savedForm && savedForm.marriageIndex ? savedForm.marriageIndex : 0;
+  let includeUnitedKingdom = Boolean(savedForm && savedForm.includeUnitedKingdom);
 
   const menu = beginMainMenu();
   addBackMenuItem(menu, function () {
+    saveForm();
+    armClearWhenAnotherToolIsChosen();
     overrideMenuWidth(previousWidth || "350px");
     backFunction();
   });
@@ -357,15 +451,11 @@ async function setupLondonLocationsMenu(data, backFunction) {
     ticks[role.id] = input;
   }
   menu.list.appendChild(prefillRow);
-
-  const ukLabel = document.createElement("label");
-  ukLabel.className = "londonLocCheck";
-  const ukInput = document.createElement("input");
-  ukInput.type = "checkbox";
-  ukInput.id = "londonLocUnitedKingdom";
-  ukLabel.appendChild(ukInput);
-  ukLabel.appendChild(document.createTextNode("Include United Kingdom (from 1801)"));
-  menu.list.appendChild(ukLabel);
+  if (savedForm && savedForm.ticks) {
+    for (const role of ROLES) {
+      ticks[role.id].checked = Boolean(savedForm.ticks[role.id]);
+    }
+  }
 
   const clearAll = document.createElement("button");
   clearAll.type = "button";
@@ -491,7 +581,7 @@ async function setupLondonLocationsMenu(data, backFunction) {
     clearSection.type = "button";
     clearSection.className = "dialogButton";
     clearSection.textContent = "Clear section";
-    clearSection.style.margin = "4px 10px";
+    clearSection.classList.add("londonLocClearSection");
     clearSection.onclick = function () {
       edits[role.id] = blankState(role.fillField);
       placeInput.value = "";
@@ -536,49 +626,72 @@ async function setupLondonLocationsMenu(data, backFunction) {
         }
         refresh();
       });
-      renderOutputs(results, row, dateInput.value, registrationInput.checked, ukInput.checked, allowFill);
+      renderOutputs(
+        results,
+        row,
+        dateInput.value,
+        registrationInput.checked,
+        includeUnitedKingdom,
+        allowFill,
+        function (checked) {
+          includeUnitedKingdom = checked;
+          saveForm();
+          renderSections();
+        }
+      );
       const select = results.querySelector("select");
       if (select) {
         const wanted = (edits[role.id] && edits[role.id].fillField) || state.fillField;
         if (FILL_FIELDS.some((field) => field.value === wanted)) {
           select.value = wanted;
         }
-        select.onchange = remember;
+        select.onchange = function () {
+          remember();
+          saveForm();
+        };
       }
       remember();
+      saveForm();
     }
 
     placeInput.addEventListener("input", refresh);
     dateInput.addEventListener("input", refresh);
     registrationInput.addEventListener("change", refresh);
     refresh();
-    const select = results.querySelector("select");
-    if (select) {
-      select.value = state.fillField;
-      select.addEventListener("change", remember);
-    }
     return section;
+  }
+
+  function saveForm() {
+    saveFormState({
+      ticks: {
+        birth: ticks.birth.checked,
+        marriage: ticks.marriage.checked,
+        death: ticks.death.checked,
+      },
+      marriageIndex: marriageIndex,
+      includeUnitedKingdom: includeUnitedKingdom,
+      edits: edits,
+    });
   }
 
   function onTicksChanged() {
     renderSections();
+    saveForm();
   }
 
   for (const role of ROLES) {
     ticks[role.id].addEventListener("change", onTicksChanged);
   }
-  ukInput.addEventListener("change", function () {
-    renderSections();
-  });
   clearAll.onclick = function () {
     for (const role of ROLES) {
       ticks[role.id].checked = false;
     }
-    ukInput.checked = false;
+    includeUnitedKingdom = false;
     marriageIndex = 0;
     for (const key of Object.keys(edits)) {
       delete edits[key];
     }
+    clearFormState();
     renderSections();
   };
 
