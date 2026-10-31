@@ -395,19 +395,55 @@ function formatNarrative(label, county) {
   return label + ", " + county;
 }
 
-function variantFor(row, county, registration) {
+const UNITED_KINGDOM_START = 18010101;
+
+function categoryWikiText(category) {
+  if (!category) {
+    return null;
+  }
+  return "[[Category: " + category + "]]";
+}
+
+function unitedKingdomStatus(range, includeUnitedKingdom) {
+  if (!includeUnitedKingdom) {
+    return { allowed: false, note: "" };
+  }
+  if (range.start >= UNITED_KINGDOM_START) {
+    return { allowed: true, note: "" };
+  }
+  if (range.end < UNITED_KINGDOM_START) {
+    return {
+      allowed: false,
+      note: "United Kingdom is only used from 1801, so it has not been added.",
+    };
+  }
+  return {
+    allowed: false,
+    note: "This date could fall before 1801, so United Kingdom has not been added.",
+  };
+}
+
+function variantFor(row, county, registration, includeUnitedKingdom) {
   const label = placeLabel(row, registration);
   const category = categoryFor(row, county);
+  let location = formatLocation(label, county);
+  let narrative = formatNarrative(label, county);
+  if (includeUnitedKingdom) {
+    location = location + ", United Kingdom";
+    narrative = narrative + ", United Kingdom";
+  }
   return {
     county: county,
-    location: formatLocation(label, county),
-    narrative: formatNarrative(label, county),
+    location: location,
+    narrative: narrative,
     category: category.category,
+    categoryWiki: categoryWikiText(category.category),
     categoryNote: category.categoryNote,
   };
 }
 
-function buildOutputs(row, dateInput, registration) {
+function buildOutputs(row, dateInput, registration, outputOptions) {
+  const includeRequest = Boolean(outputOptions && outputOptions.includeUnitedKingdom);
   if (!row) {
     return { ok: false, message: "Choose a place from the list." };
   }
@@ -416,6 +452,7 @@ function buildOutputs(row, dateInput, registration) {
     return { ok: false, message: parsed.message };
   }
   const range = dateRange(parsed);
+  const uk = unitedKingdomStatus(range, includeRequest);
   const periods = periodsInRange(range.start, range.end);
   const options = [];
   const missing = [];
@@ -429,7 +466,8 @@ function buildOutputs(row, dateInput, registration) {
       period: period.id,
       periodLabel: period.label,
       reason: periods.length > 1 ? periodReason(parsed, period.id) : "",
-      variants: counties.map((county) => variantFor(row, county, registration)),
+      ukNote: uk.note,
+      variants: counties.map((county) => variantFor(row, county, registration, uk.allowed)),
     });
   }
   let message = "";
@@ -487,65 +525,107 @@ function isRegistrationRecord(gd) {
   return /Registration/.test(recordType);
 }
 
-function listEvents(gd) {
-  if (!gd) {
-    return [];
-  }
-  const events = [];
-  function add(place, date, fillField, forceRegistration) {
-    const placeText = placeTextFrom(place);
-    if (!placeText) {
-      return;
-    }
-    events.push({
-      place: placeText,
-      date: dateTextFrom(date),
-      fillField: fillField,
-      forceRegistration: Boolean(forceRegistration),
-    });
-  }
-  add(gd.birthPlace, gd.birthDate, "birthLocation");
-  add(gd.deathPlace, gd.deathDate, "deathLocation");
-  if (Array.isArray(gd.spouses)) {
-    for (const spouse of gd.spouses) {
-      add(spouse.marriagePlace, spouse.marriageDate, "marriageLocation");
+function spouseLabel(spouse, index) {
+  let name = "";
+  if (spouse && spouse.name) {
+    if (typeof spouse.name === "string") {
+      name = spouse.name;
+    } else {
+      name = [spouse.name.forenames, spouse.name.lastName].filter(Boolean).join(" ");
     }
   }
-  add(gd.eventPlace, gd.eventDate, null);
-  if (gd.registrationDistrict) {
-    add(gd.registrationDistrict, gd.eventDate, null, true);
+  if (!name && spouse && spouse.lastNameAtBirth) {
+    name = spouse.lastNameAtBirth;
   }
-  return events;
+  if (name) {
+    return name;
+  }
+  return "Marriage " + (index + 1);
 }
 
-function prefillFromGeneralizedData(gd) {
-  const events = listEvents(gd);
-  let fallback = null;
-  for (const event of events) {
-    if (!fallback) {
-      fallback = event;
-    }
-    const match = matchPlaceString(event.place);
-    if (match) {
-      return {
-        placeText: match.row.name,
-        matched: true,
-        dateText: event.date,
-        registration: match.registration || event.forceRegistration || isRegistrationRecord(gd),
-        fillField: event.fillField,
-      };
-    }
-  }
-  if (!fallback) {
+function packEvent(place, date, registration) {
+  const rawPlace = placeTextFrom(place);
+  const dateText = dateTextFrom(date);
+  if (!rawPlace && !dateText) {
     return null;
   }
+  const match = rawPlace ? matchPlaceString(rawPlace) : null;
   return {
-    placeText: fallback.place,
-    matched: false,
-    dateText: fallback.date,
-    registration: fallback.forceRegistration || isRegistrationRecord(gd),
-    fillField: fallback.fillField,
+    placeText: match ? match.row.name : rawPlace,
+    dateText: dateText,
+    registration: Boolean(registration || (match && match.registration)),
+    matched: Boolean(match),
   };
+}
+
+function isBirthRecord(recordType) {
+  return (
+    recordType === "Birth" ||
+    recordType === "BirthRegistration" ||
+    recordType === "Baptism" ||
+    recordType === "BirthOrBaptism"
+  );
+}
+
+function isDeathRecord(recordType) {
+  return (
+    recordType === "Death" ||
+    recordType === "DeathRegistration" ||
+    recordType === "Burial" ||
+    recordType === "Cremation" ||
+    recordType === "DeathOrBurial"
+  );
+}
+
+function isMarriageRecord(recordType) {
+  return recordType === "Marriage" || recordType === "MarriageRegistration";
+}
+
+function profileEvents(gd) {
+  const empty = { birth: null, death: null, marriages: [] };
+  if (!gd) {
+    return empty;
+  }
+  const registration = isRegistrationRecord(gd);
+  const birth = packEvent(gd.birthPlace, gd.birthDate, registration && gd.birthPlace);
+  const death = packEvent(gd.deathPlace, gd.deathDate, registration && gd.deathPlace);
+  const marriages = [];
+  if (Array.isArray(gd.spouses)) {
+    gd.spouses.forEach(function (spouse, index) {
+      const packed = packEvent(spouse.marriagePlace, spouse.marriageDate, registration && spouse.marriagePlace);
+      if (packed) {
+        packed.label = spouseLabel(spouse, index);
+        marriages.push(packed);
+      }
+    });
+  }
+
+  const recordType = gd.recordType;
+  const eventPlace = gd.eventPlace || (gd.registrationDistrict ? gd.registrationDistrict : "");
+  const eventPacked = packEvent(eventPlace, gd.eventDate, registration || Boolean(gd.registrationDistrict));
+  if (eventPacked && isBirthRecord(recordType) && !birth) {
+    empty.birth = eventPacked;
+  } else {
+    empty.birth = birth;
+  }
+  if (eventPacked && isDeathRecord(recordType) && !death) {
+    empty.death = eventPacked;
+  } else {
+    empty.death = death;
+  }
+  if (eventPacked && isMarriageRecord(recordType) && !marriages.length) {
+    eventPacked.label = "Marriage";
+    marriages.push(eventPacked);
+  }
+  empty.marriages = marriages;
+  return empty;
+}
+
+function hasProfileEvents(events) {
+  if (!events) {
+    return false;
+  }
+  return Boolean(events.birth || events.death || (events.marriages && events.marriages.length));
 }
 
 function canFillWikiTreeEdit(data) {
@@ -570,6 +650,7 @@ export {
   matchPlaceString,
   parseLocationDate,
   buildOutputs,
-  prefillFromGeneralizedData,
+  profileEvents,
+  hasProfileEvents,
   canFillWikiTreeEdit,
 };

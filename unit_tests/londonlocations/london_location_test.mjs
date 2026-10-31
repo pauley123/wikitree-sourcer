@@ -29,7 +29,7 @@ import {
   findRowByName,
   matchPlaceString,
   buildOutputs,
-  prefillFromGeneralizedData,
+  profileEvents,
   canFillWikiTreeEdit,
 } from "../../extension/site/londonlocations/core/london_location.mjs";
 
@@ -384,24 +384,50 @@ async function runTests(testManager) {
     camdenNames.join(", ")
   );
 
-  const prefill = prefillFromGeneralizedData({
+  const mapped = profileEvents({
     birthPlace: { placeString: "Leeds, Yorkshire, England" },
     birthDate: { dateString: "1 Jan 1840" },
     deathPlace: { placeString: "Battersea, Surrey, England" },
     deathDate: { dateString: "1 Jan 1880" },
-    recordType: "Death",
+    spouses: [
+      {
+        name: { forenames: "Ann", lastName: "Smith" },
+        marriagePlace: { placeString: "Hackney, Middlesex, England" },
+        marriageDate: { dateString: "2 Jun 1860" },
+      },
+      {
+        name: "Mary Jones",
+        marriagePlace: { placeString: "Battersea, Surrey, England" },
+        marriageDate: { dateString: "8 Apr 1815" },
+      },
+    ],
   });
   check(
     testManager,
-    "prefill prefers a table place",
-    prefill &&
-      prefill.placeText === "Battersea" &&
-      prefill.dateText === "1 Jan 1880" &&
-      prefill.fillField === "deathLocation",
-    JSON.stringify(prefill)
+    "prefill birth stays with birth",
+    mapped.birth && mapped.birth.placeText === "Leeds, Yorkshire, England" && mapped.birth.dateText === "1 Jan 1840",
+    JSON.stringify(mapped.birth)
+  );
+  check(
+    testManager,
+    "prefill death stays with death",
+    mapped.death && mapped.death.placeText === "Battersea" && mapped.death.dateText === "1 Jan 1880",
+    JSON.stringify(mapped.death)
+  );
+  check(
+    testManager,
+    "prefill marriages",
+    mapped.marriages.length === 2 &&
+      mapped.marriages[0].label === "Ann Smith" &&
+      mapped.marriages[0].placeText === "Hackney" &&
+      mapped.marriages[0].dateText === "2 Jun 1860" &&
+      mapped.marriages[1].label === "Mary Jones" &&
+      mapped.marriages[1].placeText === "Battersea" &&
+      mapped.marriages[1].dateText === "8 Apr 1815",
+    JSON.stringify(mapped.marriages)
   );
 
-  const regPrefill = prefillFromGeneralizedData({
+  const regPrefill = profileEvents({
     eventPlace: { placeString: "Hackney, Middlesex, England" },
     eventDate: { dateString: "1870" },
     recordType: "BirthRegistration",
@@ -410,8 +436,59 @@ async function runTests(testManager) {
   check(
     testManager,
     "prefill registration",
-    regPrefill && regPrefill.placeText === "Hackney" && regPrefill.registration === true,
+    regPrefill.birth &&
+      regPrefill.birth.placeText === "Hackney" &&
+      regPrefill.birth.dateText === "1870" &&
+      regPrefill.birth.registration === true &&
+      !regPrefill.death,
     JSON.stringify(regPrefill)
+  );
+
+  const stPancras = outputs("St Pancras", "8 Apr 1815");
+  check(
+    testManager,
+    "st pancras 1815",
+    single(stPancras).location === "St Pancras, Middlesex, England" &&
+      single(stPancras).narrative === "St Pancras, Middlesex" &&
+      !single(stPancras).location.includes("United Kingdom"),
+    JSON.stringify(single(stPancras))
+  );
+  check(
+    testManager,
+    "category wiki",
+    single(stPancras).categoryWiki === "[[Category: St Pancras, Middlesex (London)]]",
+    single(stPancras).categoryWiki
+  );
+
+  const withUk = buildOutputs(row("St Pancras"), "8 Apr 1815", false, { includeUnitedKingdom: true });
+  check(
+    testManager,
+    "uk on location",
+    single(withUk).location === "St Pancras, Middlesex, England, United Kingdom",
+    single(withUk).location
+  );
+  check(
+    testManager,
+    "uk on biography",
+    single(withUk).narrative === "St Pancras, Middlesex, United Kingdom",
+    single(withUk).narrative
+  );
+  check(testManager, "uk on has no warning", !withUk.options[0].ukNote, withUk.options[0].ukNote);
+
+  const beforeUk = buildOutputs(row("St Pancras"), "8 Apr 1790", false, { includeUnitedKingdom: true });
+  check(
+    testManager,
+    "uk before 1801 omitted",
+    single(beforeUk).location === "St Pancras, Middlesex, England" &&
+      !single(beforeUk).narrative.includes("United Kingdom") &&
+      beforeUk.options[0].ukNote.includes("1801"),
+    single(beforeUk).location + " / " + beforeUk.options[0].ukNote
+  );
+  check(
+    testManager,
+    "uk off",
+    single(outputs("St Pancras", "8 Apr 1815")).location === "St Pancras, Middlesex, England",
+    single(outputs("St Pancras", "8 Apr 1815")).location
   );
 
   check(

@@ -468,6 +468,29 @@ dd.truncate {
   flex-direction: column;
   margin: 6px 10px;
 }
+.londonLocCheck {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 10px;
+}
+.londonLocCheck input {
+  margin: 0;
+  flex: 0 0 auto;
+}
+.londonLocToolbar {
+  margin: 4px 10px 8px 10px;
+}
+.londonLocSection {
+  margin: 8px 6px 4px 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #c8c8c8;
+}
+.londonLocSectionTitle {
+  font-weight: bold;
+  margin: 6px 10px 2px 10px;
+}
 .londonLocInput {
   width: 100%;
   box-sizing: border-box;

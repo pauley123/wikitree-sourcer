@@ -35,11 +35,18 @@ import {
   rowLabel,
   matchPlaceString,
   buildOutputs,
-  prefillFromGeneralizedData,
+  profileEvents,
+  hasProfileEvents,
   canFillWikiTreeEdit,
 } from "../core/london_location.mjs";
 
 const MAX_SUGGESTIONS = 40;
+
+const ROLES = [
+  { id: "birth", title: "Birth", fillField: "birthLocation" },
+  { id: "marriage", title: "Marriage", fillField: "marriageLocation" },
+  { id: "death", title: "Death", fillField: "deathLocation" },
+];
 
 const FILL_FIELDS = [
   { value: "birthLocation", label: "Birth location" },
@@ -60,6 +67,27 @@ function suggestionQuery(placeText) {
     return first;
   }
   return text;
+}
+
+function blankState(fillField) {
+  return {
+    place: "",
+    date: "",
+    registration: false,
+    fillField: fillField || "birthLocation",
+  };
+}
+
+function stateFromEvent(event, fillField) {
+  if (!event) {
+    return blankState(fillField);
+  }
+  return {
+    place: event.placeText || "",
+    date: event.dateText || "",
+    registration: Boolean(event.registration),
+    fillField: fillField,
+  };
 }
 
 async function copyText(text, button) {
@@ -84,7 +112,6 @@ function addCopyButton(parent, text) {
     copyText(text, button);
   };
   parent.appendChild(button);
-  return button;
 }
 
 function fillStatus(results, message) {
@@ -117,109 +144,6 @@ async function fillLocation(field, value, results) {
       fillStatus(results, "Location field updated.");
     }
   });
-}
-
-function renderOutputs(results, row, dateText, registration, allowFill, fillField) {
-  results.replaceChildren();
-  if (!row) {
-    const note = document.createElement("div");
-    note.className = "londonLocNote";
-    note.textContent = "Choose a place from the list.";
-    results.appendChild(note);
-    return;
-  }
-  if (!dateText.trim()) {
-    const note = document.createElement("div");
-    note.className = "londonLocNote";
-    note.textContent = "Enter a date.";
-    results.appendChild(note);
-    return;
-  }
-
-  const built = buildOutputs(row, dateText, registration);
-  if (!built.ok) {
-    const note = document.createElement("div");
-    note.className = "londonLocNote";
-    note.textContent = built.message;
-    results.appendChild(note);
-    return;
-  }
-  if (built.message) {
-    const note = document.createElement("div");
-    note.className = "londonLocNote";
-    note.textContent = built.message;
-    results.appendChild(note);
-  }
-  if (!built.options.length) {
-    return;
-  }
-
-  for (const option of built.options) {
-    const block = document.createElement("div");
-    block.className = "londonLocResult";
-    if (option.reason) {
-      const reason = document.createElement("div");
-      reason.className = "londonLocNote";
-      reason.textContent = option.reason;
-      block.appendChild(reason);
-    }
-    for (const variant of option.variants) {
-      if (option.variants.length > 1) {
-        const which = document.createElement("div");
-        which.className = "londonLocHeading";
-        which.textContent = variant.county;
-        block.appendChild(which);
-      }
-      addOutputLine(block, "Location field", variant.location, true, allowFill, fillField, results);
-      addCategoryLine(block, variant);
-      addOutputLine(block, "Biography", variant.narrative, false, false, fillField, results);
-    }
-    results.appendChild(block);
-  }
-}
-
-function addOutputLine(parent, heading, text, isLocation, allowFill, fillField, results) {
-  const wrap = document.createElement("div");
-  wrap.className = "londonLocLine";
-  const title = document.createElement("span");
-  title.className = "londonLocHeading";
-  title.textContent = heading;
-  wrap.appendChild(title);
-  wrap.appendChild(document.createTextNode(text));
-  addCopyButton(wrap, text);
-  if (isLocation && allowFill) {
-    const fill = document.createElement("button");
-    fill.className = "dialogButton londonLocButtons";
-    fill.type = "button";
-    fill.innerText = "Fill";
-    fill.onclick = function () {
-      const select = document.getElementById("londonLocFillField");
-      const field = select ? select.value : fillField || "birthLocation";
-      fillLocation(field, text, results);
-    };
-    wrap.appendChild(fill);
-  }
-  parent.appendChild(wrap);
-}
-
-function addCategoryLine(parent, variant) {
-  const wrap = document.createElement("div");
-  wrap.className = "londonLocLine";
-  const title = document.createElement("span");
-  title.className = "londonLocHeading";
-  title.textContent = "Category";
-  wrap.appendChild(title);
-  if (variant.category) {
-    wrap.appendChild(document.createTextNode(variant.category));
-    addCopyButton(wrap, variant.category);
-  }
-  if (variant.categoryNote) {
-    const note = document.createElement("div");
-    note.className = "londonLocNote";
-    note.textContent = variant.categoryNote;
-    wrap.appendChild(note);
-  }
-  parent.appendChild(wrap);
 }
 
 function renderSuggestions(list, placeText, selected, onChoose) {
@@ -257,23 +181,157 @@ function renderSuggestions(list, placeText, selected, onChoose) {
   }
 }
 
-async function loadPrefill(data) {
-  const current = prefillFromGeneralizedData(data && data.generalizedData);
-  if (current && current.placeText) {
+function addOutputLine(parent, heading, text) {
+  const wrap = document.createElement("div");
+  wrap.className = "londonLocLine";
+  const title = document.createElement("span");
+  title.className = "londonLocHeading";
+  title.textContent = heading;
+  wrap.appendChild(title);
+  wrap.appendChild(document.createTextNode(text));
+  addCopyButton(wrap, text);
+  parent.appendChild(wrap);
+  return wrap;
+}
+
+function renderOutputs(results, row, dateText, registration, includeUnitedKingdom, allowFill) {
+  const keptSelect = results.querySelector("select");
+  const selectedField = keptSelect ? keptSelect.value : "";
+  results.replaceChildren();
+
+  const heading = document.createElement("div");
+  heading.className = "londonLocHeading";
+  heading.textContent = "Result";
+  results.appendChild(heading);
+
+  const fillLabel = document.createElement("label");
+  fillLabel.className = "londonLocCheck";
+  fillLabel.appendChild(document.createTextNode("Result goes to"));
+  const fillSelect = document.createElement("select");
+  for (const field of FILL_FIELDS) {
+    const option = document.createElement("option");
+    option.value = field.value;
+    option.textContent = field.label;
+    fillSelect.appendChild(option);
+  }
+  if (selectedField) {
+    fillSelect.value = selectedField;
+  }
+  fillLabel.appendChild(fillSelect);
+  results.appendChild(fillLabel);
+
+  if (!row) {
+    const note = document.createElement("div");
+    note.className = "londonLocNote";
+    note.textContent = "Choose a place from the list.";
+    results.appendChild(note);
+    return;
+  }
+  if (!dateText.trim()) {
+    const note = document.createElement("div");
+    note.className = "londonLocNote";
+    note.textContent = "Enter a date.";
+    results.appendChild(note);
+    return;
+  }
+
+  const built = buildOutputs(row, dateText, registration, { includeUnitedKingdom: includeUnitedKingdom });
+  if (!built.ok) {
+    const note = document.createElement("div");
+    note.className = "londonLocNote";
+    note.textContent = built.message;
+    results.appendChild(note);
+    return;
+  }
+  if (built.message) {
+    const note = document.createElement("div");
+    note.className = "londonLocNote";
+    note.textContent = built.message;
+    results.appendChild(note);
+  }
+  if (!built.options.length) {
+    return;
+  }
+
+  for (const option of built.options) {
+    const block = document.createElement("div");
+    block.className = "londonLocResult";
+    if (option.reason) {
+      const reason = document.createElement("div");
+      reason.className = "londonLocNote";
+      reason.textContent = option.reason;
+      block.appendChild(reason);
+    }
+    if (option.ukNote) {
+      const ukNote = document.createElement("div");
+      ukNote.className = "londonLocNote";
+      ukNote.textContent = option.ukNote;
+      block.appendChild(ukNote);
+    }
+    for (const variant of option.variants) {
+      if (option.variants.length > 1) {
+        const which = document.createElement("div");
+        which.className = "londonLocHeading";
+        which.textContent = variant.county;
+        block.appendChild(which);
+      }
+      const locationLine = addOutputLine(block, "Location field", variant.location);
+      if (allowFill) {
+        const fill = document.createElement("button");
+        fill.className = "dialogButton londonLocButtons";
+        fill.type = "button";
+        fill.innerText = "Fill";
+        fill.onclick = function () {
+          fillLocation(fillSelect.value, variant.location, results);
+        };
+        locationLine.appendChild(fill);
+      }
+      const categoryLine = document.createElement("div");
+      categoryLine.className = "londonLocLine";
+      const categoryTitle = document.createElement("span");
+      categoryTitle.className = "londonLocHeading";
+      categoryTitle.textContent = "WikiTree Category";
+      categoryLine.appendChild(categoryTitle);
+      if (variant.categoryWiki) {
+        categoryLine.appendChild(document.createTextNode(variant.categoryWiki));
+        addCopyButton(categoryLine, variant.categoryWiki);
+      }
+      if (variant.categoryNote) {
+        const note = document.createElement("div");
+        note.className = "londonLocNote";
+        note.textContent = variant.categoryNote;
+        categoryLine.appendChild(note);
+      }
+      block.appendChild(categoryLine);
+      addOutputLine(block, "Biography", variant.narrative);
+    }
+    results.appendChild(block);
+  }
+}
+
+async function loadEvents(data) {
+  const current = profileEvents(data && data.generalizedData);
+  if (hasProfileEvents(current)) {
     return current;
   }
   try {
     const saved = await getLatestPersonData();
-    return prefillFromGeneralizedData(saved && saved.generalizedData);
+    const fromSaved = profileEvents(saved && saved.generalizedData);
+    if (hasProfileEvents(fromSaved)) {
+      return fromSaved;
+    }
   } catch (error) {
-    return null;
+    return profileEvents(null);
   }
+  return profileEvents(null);
 }
 
 async function setupLondonLocationsMenu(data, backFunction) {
   const previousWidth = overrideMenuWidth("540px");
-  const prefill = await loadPrefill(data);
+  const events = await loadEvents(data);
   const allowFill = canFillWikiTreeEdit(data);
+  const edits = {};
+  let marriageIndex = 0;
 
   const menu = beginMainMenu();
   addBackMenuItem(menu, function () {
@@ -281,103 +339,251 @@ async function setupLondonLocationsMenu(data, backFunction) {
     backFunction();
   });
 
-  const placeLabel = document.createElement("label");
-  placeLabel.className = "londonLocLabel";
-  placeLabel.appendChild(document.createTextNode("Location name"));
-  const placeInput = document.createElement("input");
-  placeInput.type = "text";
-  placeInput.className = "dialogTextInput londonLocInput";
-  placeInput.id = "londonLocPlace";
-  placeLabel.appendChild(placeInput);
-  menu.list.appendChild(placeLabel);
+  const prefillRow = document.createElement("div");
+  prefillRow.className = "londonLocToolbar";
+  const prefillLabel = document.createElement("span");
+  prefillLabel.textContent = "Prefill";
+  prefillRow.appendChild(prefillLabel);
+  const ticks = {};
+  for (const role of ROLES) {
+    const label = document.createElement("label");
+    label.className = "londonLocCheck";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.dataset.role = role.id;
+    label.appendChild(input);
+    label.appendChild(document.createTextNode(role.title));
+    prefillRow.appendChild(label);
+    ticks[role.id] = input;
+  }
+  menu.list.appendChild(prefillRow);
 
-  const note = document.createElement("div");
-  note.className = "londonLocNote";
-  note.id = "londonLocSelectedNote";
-  menu.list.appendChild(note);
+  const ukLabel = document.createElement("label");
+  ukLabel.className = "londonLocCheck";
+  const ukInput = document.createElement("input");
+  ukInput.type = "checkbox";
+  ukInput.id = "londonLocUnitedKingdom";
+  ukLabel.appendChild(ukInput);
+  ukLabel.appendChild(document.createTextNode("Include United Kingdom (from 1801)"));
+  menu.list.appendChild(ukLabel);
 
-  const list = document.createElement("div");
-  list.className = "londonLocList";
-  menu.list.appendChild(list);
+  const clearAll = document.createElement("button");
+  clearAll.type = "button";
+  clearAll.className = "dialogButton";
+  clearAll.textContent = "Clear all";
+  clearAll.style.margin = "4px 10px 8px 10px";
+  menu.list.appendChild(clearAll);
 
-  const registrationLabel = document.createElement("label");
-  registrationLabel.className = "londonLocLabel";
-  const registrationInput = document.createElement("input");
-  registrationInput.type = "checkbox";
-  registrationInput.id = "londonLocRegistration";
-  registrationLabel.appendChild(registrationInput);
-  registrationLabel.appendChild(document.createTextNode(" Registration record"));
-  menu.list.appendChild(registrationLabel);
+  const sections = document.createElement("div");
+  menu.list.appendChild(sections);
 
-  const dateLabel = document.createElement("label");
-  dateLabel.className = "londonLocLabel";
-  dateLabel.appendChild(document.createTextNode("Date"));
-  const dateInput = document.createElement("input");
-  dateInput.type = "text";
-  dateInput.className = "dialogTextInput londonLocInput";
-  dateInput.id = "londonLocDate";
-  dateInput.placeholder = "1 Jan 1880, 1889, abt 1888, bef 1900";
-  dateLabel.appendChild(dateInput);
-  menu.list.appendChild(dateLabel);
-
-  let fillField = (prefill && prefill.fillField) || "birthLocation";
-  if (allowFill) {
-    const fillLabel = document.createElement("label");
-    fillLabel.className = "londonLocLabel";
-    fillLabel.appendChild(document.createTextNode("Fill into"));
-    const fillSelect = document.createElement("select");
-    fillSelect.id = "londonLocFillField";
-    for (const field of FILL_FIELDS) {
-      const option = document.createElement("option");
-      option.value = field.value;
-      option.textContent = field.label;
-      fillSelect.appendChild(option);
+  function marriageEvent() {
+    if (!events.marriages.length) {
+      return null;
     }
-    fillSelect.value = FILL_FIELDS.some((field) => field.value === fillField) ? fillField : "birthLocation";
-    fillLabel.appendChild(fillSelect);
-    menu.list.appendChild(fillLabel);
+    if (marriageIndex < 0 || marriageIndex >= events.marriages.length) {
+      marriageIndex = 0;
+    }
+    return events.marriages[marriageIndex];
   }
 
-  const results = document.createElement("div");
-  results.id = "londonLocResults";
-  menu.list.appendChild(results);
-
-  function refresh() {
-    const match = matchPlaceString(placeInput.value);
-    const row = match ? match.row : null;
-    if (row && row.kind === "registrationDistrict") {
-      registrationInput.checked = true;
-      registrationInput.disabled = true;
-    } else if (match && match.registration) {
-      registrationInput.checked = true;
-      registrationInput.disabled = false;
-    } else {
-      registrationInput.disabled = false;
+  function initialState(roleId) {
+    if (roleId === "birth") {
+      return stateFromEvent(events.birth, "birthLocation");
     }
-    note.textContent = row && row.note ? row.note : "";
-    renderSuggestions(list, placeInput.value, row, function (picked) {
-      placeInput.value = picked.name;
-      if (picked.kind === "registrationDistrict") {
-        registrationInput.checked = true;
-      }
-      refresh();
+    if (roleId === "death") {
+      return stateFromEvent(events.death, "deathLocation");
+    }
+    if (roleId === "marriage") {
+      return stateFromEvent(marriageEvent(), "marriageLocation");
+    }
+    return blankState("birthLocation");
+  }
+
+  function activeRoles() {
+    return ROLES.filter((role) => ticks[role.id].checked);
+  }
+
+  function renderSections() {
+    sections.replaceChildren();
+    const roles = activeRoles();
+    const shown = roles.length ? roles : [{ id: "manual", title: "Location", fillField: "birthLocation" }];
+    shown.forEach(function (role, index) {
+      const state = edits[role.id] || initialState(role.id);
+      sections.appendChild(buildSection(index + 1, role, state));
     });
-    renderOutputs(results, row, dateInput.value, registrationInput.checked, allowFill, fillField);
   }
 
-  placeInput.addEventListener("input", refresh);
-  dateInput.addEventListener("input", refresh);
-  registrationInput.addEventListener("change", refresh);
+  function buildSection(number, role, state) {
+    const section = document.createElement("div");
+    section.className = "londonLocSection";
+    section.dataset.role = role.id;
 
-  if (prefill) {
-    placeInput.value = prefill.placeText || "";
-    dateInput.value = prefill.dateText || "";
-    registrationInput.checked = Boolean(prefill.registration);
+    const title = document.createElement("div");
+    title.className = "londonLocSectionTitle";
+    title.textContent = number + ". " + role.title;
+    section.appendChild(title);
+
+    if (role.id === "marriage" && events.marriages.length > 1) {
+      const spouseLabel = document.createElement("label");
+      spouseLabel.className = "londonLocLabel";
+      spouseLabel.appendChild(document.createTextNode("Spouse"));
+      const spouseSelect = document.createElement("select");
+      events.marriages.forEach(function (marriage, index) {
+        const option = document.createElement("option");
+        option.value = String(index);
+        option.textContent = marriage.label;
+        spouseSelect.appendChild(option);
+      });
+      spouseSelect.value = String(marriageIndex);
+      spouseSelect.addEventListener("change", function () {
+        marriageIndex = Number(spouseSelect.value);
+        const next = stateFromEvent(marriageEvent(), "marriageLocation");
+        edits.marriage = next;
+        placeInput.value = next.place;
+        dateInput.value = next.date;
+        registrationInput.checked = next.registration;
+        refresh();
+      });
+      spouseLabel.appendChild(spouseSelect);
+      section.appendChild(spouseLabel);
+    }
+
+    const placeLabel = document.createElement("label");
+    placeLabel.className = "londonLocLabel";
+    placeLabel.appendChild(document.createTextNode("Location name"));
+    const placeInput = document.createElement("input");
+    placeInput.type = "text";
+    placeInput.className = "dialogTextInput londonLocInput";
+    placeInput.value = state.place;
+    placeLabel.appendChild(placeInput);
+    section.appendChild(placeLabel);
+
+    const note = document.createElement("div");
+    note.className = "londonLocNote";
+    section.appendChild(note);
+
+    const list = document.createElement("div");
+    list.className = "londonLocList";
+    section.appendChild(list);
+
+    const registrationLabel = document.createElement("label");
+    registrationLabel.className = "londonLocCheck";
+    const registrationInput = document.createElement("input");
+    registrationInput.type = "checkbox";
+    registrationInput.checked = state.registration;
+    registrationLabel.appendChild(registrationInput);
+    registrationLabel.appendChild(document.createTextNode("Registration record"));
+    section.appendChild(registrationLabel);
+
+    const dateLabel = document.createElement("label");
+    dateLabel.className = "londonLocLabel";
+    dateLabel.appendChild(document.createTextNode("Date"));
+    const dateInput = document.createElement("input");
+    dateInput.type = "text";
+    dateInput.className = "dialogTextInput londonLocInput";
+    dateInput.placeholder = "1 Jan 1880, 1889, abt 1888, bef 1900";
+    dateInput.value = state.date;
+    dateLabel.appendChild(dateInput);
+    section.appendChild(dateLabel);
+
+    const clearSection = document.createElement("button");
+    clearSection.type = "button";
+    clearSection.className = "dialogButton";
+    clearSection.textContent = "Clear section";
+    clearSection.style.margin = "4px 10px";
+    clearSection.onclick = function () {
+      edits[role.id] = blankState(role.fillField);
+      placeInput.value = "";
+      dateInput.value = "";
+      registrationInput.checked = false;
+      refresh();
+    };
+    section.appendChild(clearSection);
+
+    const results = document.createElement("div");
+    section.appendChild(results);
+    const fillSelectHolder = document.createElement("div");
+    results.appendChild(fillSelectHolder);
+
+    function remember() {
+      const select = results.querySelector("select");
+      edits[role.id] = {
+        place: placeInput.value,
+        date: dateInput.value,
+        registration: registrationInput.checked,
+        fillField: select ? select.value : state.fillField,
+      };
+    }
+
+    function refresh() {
+      const match = matchPlaceString(placeInput.value);
+      const row = match ? match.row : null;
+      if (row && row.kind === "registrationDistrict") {
+        registrationInput.checked = true;
+        registrationInput.disabled = true;
+      } else if (match && match.registration) {
+        registrationInput.checked = true;
+        registrationInput.disabled = false;
+      } else {
+        registrationInput.disabled = false;
+      }
+      note.textContent = row && row.note ? row.note : "";
+      renderSuggestions(list, placeInput.value, row, function (picked) {
+        placeInput.value = picked.name;
+        if (picked.kind === "registrationDistrict") {
+          registrationInput.checked = true;
+        }
+        refresh();
+      });
+      renderOutputs(results, row, dateInput.value, registrationInput.checked, ukInput.checked, allowFill);
+      const select = results.querySelector("select");
+      if (select) {
+        const wanted = (edits[role.id] && edits[role.id].fillField) || state.fillField;
+        if (FILL_FIELDS.some((field) => field.value === wanted)) {
+          select.value = wanted;
+        }
+        select.onchange = remember;
+      }
+      remember();
+    }
+
+    placeInput.addEventListener("input", refresh);
+    dateInput.addEventListener("input", refresh);
+    registrationInput.addEventListener("change", refresh);
+    refresh();
+    const select = results.querySelector("select");
+    if (select) {
+      select.value = state.fillField;
+      select.addEventListener("change", remember);
+    }
+    return section;
   }
-  refresh();
 
+  function onTicksChanged() {
+    renderSections();
+  }
+
+  for (const role of ROLES) {
+    ticks[role.id].addEventListener("change", onTicksChanged);
+  }
+  ukInput.addEventListener("change", function () {
+    renderSections();
+  });
+  clearAll.onclick = function () {
+    for (const role of ROLES) {
+      ticks[role.id].checked = false;
+    }
+    ukInput.checked = false;
+    marriageIndex = 0;
+    for (const key of Object.keys(edits)) {
+      delete edits[key];
+    }
+    renderSections();
+  };
+
+  renderSections();
   endMainMenu(menu);
-  placeInput.focus();
 }
 
 export { setupLondonLocationsMenu };
