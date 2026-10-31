@@ -66,6 +66,7 @@ import "../../hathi/core/hathi_options.mjs";
 import "../../irishg/core/irishg_options.mjs";
 import "../../itcadgg/core/itcadgg_options.mjs";
 import "../../jstor/core/jstor_options.mjs";
+import "../../londonlocations/core/londonlocations_options.mjs";
 import "../../matricula/core/matricula_options.mjs";
 import "../../mdz/core/mdz_options.mjs";
 import "../../mh/core/mh_options.mjs";

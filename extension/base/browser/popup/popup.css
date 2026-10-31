@@ -462,3 +462,97 @@ dd.truncate {
   text-overflow: ellipsis; /* Adds the '...' */
   min-width: 0; /* Essential: allows the flex/grid child to shrink below its content size */
 }
+
+.londonLocLabel {
+  display: flex;
+  flex-direction: column;
+  margin: 6px 10px;
+}
+.londonLocCheck {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 10px;
+}
+.londonLocCheck input {
+  margin: 0;
+  flex: 0 0 auto;
+}
+.londonLocToolbar {
+  margin: 4px 10px 8px 10px;
+}
+.londonLocSection {
+  margin: 8px 6px 4px 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #c8c8c8;
+}
+.londonLocSectionTitle {
+  font-weight: bold;
+  margin: 6px 10px 2px 10px;
+}
+.londonLocInput {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 2px;
+}
+.londonLocList {
+  max-height: 150px;
+  overflow-y: auto;
+  margin: 0 10px 6px 10px;
+}
+.londonLocChoice {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 1px 0;
+}
+.londonLocChoice.selected {
+  font-weight: bold;
+}
+.londonLocNote {
+  margin: 0 10px 6px 10px;
+  font-style: italic;
+  white-space: pre-wrap;
+}
+.londonLocMismatch {
+  margin: 8px 10px;
+  padding: 8px 10px;
+  background: #b00020;
+  color: #fff;
+  font-weight: bold;
+  animation: londonLocFlash 1s ease-in-out 2;
+}
+@keyframes londonLocFlash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.londonLocClearSection {
+  margin: 8px 10px 4px 10px;
+}
+.londonLocRule {
+  border: none;
+  border-top: 2px solid #666;
+  margin: 22px 10px 12px 10px;
+  height: 0;
+}
+.londonLocResult {
+  margin: 8px 10px;
+  padding-top: 4px;
+}
+.londonLocHeading {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 2px;
+}
+.londonLocLine {
+  margin: 2px 0 6px 0;
+}
+.londonLocButtons {
+  margin-left: 6px;
+}

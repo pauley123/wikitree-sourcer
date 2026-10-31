@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WikiTree Sourcer",
-  "version": "3.4.6",
+  "version": "3.4.6.4",
   "description": "WikiTree Sourcer assists in finding and citing genealogy sources for use on wikitree.com.",
   "icons": {
     "16": "images/wikitree_sourcer16.png",
@@ -14,6 +14,11 @@
       "base/browser/background/background.mjs"
     ],
     "type": "module"
+  },
+  "sidebar_action": {
+    "default_title": "London Locations",
+    "default_panel": "site/londonlocations/browser/londonlocations_panel.html",
+    "default_icon": "images/wikitree_sourcer48.png"
   },
   "action": {
     "default_popup": "base/browser/popup/popup.html",

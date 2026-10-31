@@ -760,6 +760,23 @@ function additionalMessageHandler(request, sender, sendResponse) {
     setEditFamilyFields(request.personData);
     sendResponse({ success: true });
     return { wasHandled: true, returnValue: false };
+  } else if (request.type == "setLocationField") {
+    const fieldSelectors = {
+      birthLocation: "#mBirthLocation",
+      deathLocation: "#mDeathLocation",
+      marriageLocation: "#mMarriageLocation",
+    };
+    const selector = fieldSelectors[request.field];
+    const node = selector ? document.querySelector(selector) : null;
+    if (node && typeof request.value === "string") {
+      node.value = request.value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+      node.dispatchEvent(new Event("change", { bubbles: true }));
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ success: false });
+    }
+    return { wasHandled: true, returnValue: false };
   } else if (request.type == "showAdditionalFields") {
     addAdditionalAddPersonFields();
     sendResponse({ success: true });
