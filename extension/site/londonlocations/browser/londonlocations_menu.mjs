@@ -37,81 +37,56 @@ import {
   SEARCH_MENU_LABEL,
   buildOutputs,
   profileEvents,
+  profileEventsFromPage,
   hasProfileEvents,
   canFillWikiTreeEdit,
 } from "../core/london_location.mjs";
+import {
+  blankForm,
+  emptyMemory,
+  wikiIdFromPage,
+  saveTab,
+  clearPeople,
+  resolveForm,
+} from "../core/londonlocations_state.mjs";
 
-const FORM_STORAGE_KEY = "londonLocationsForm";
+// Session storage is cleared when the browser closes.
+// Change this to "local" if memory should survive a restart.
+const MEMORY_STORAGE = "session";
+const MEMORY_KEY = "londonLocationsMemory";
 
 function formStorage() {
-  if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.session) {
-    return chrome.storage.session;
+  if (typeof chrome === "undefined" || !chrome.storage) {
+    return null;
   }
-  if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
-    return chrome.storage.local;
+  if (MEMORY_STORAGE === "local") {
+    return chrome.storage.local || null;
   }
-  return null;
+  return chrome.storage.session || null;
 }
 
-function saveFormState(state) {
+function persistMemory(memory) {
   const area = formStorage();
   if (!area) {
-    return;
-  }
-  area.set({ [FORM_STORAGE_KEY]: state });
-}
-
-function loadFormState() {
-  const area = formStorage();
-  if (!area) {
-    return Promise.resolve(null);
+    return Promise.resolve();
   }
   return new Promise(function (resolve) {
-    area.get(FORM_STORAGE_KEY, function (value) {
-      resolve(value ? value[FORM_STORAGE_KEY] : null);
+    area.set({ [MEMORY_KEY]: memory }, function () {
+      resolve();
     });
   });
 }
 
-function clearFormState() {
+function loadMemory() {
   const area = formStorage();
   if (!area) {
-    return;
+    return Promise.resolve(emptyMemory());
   }
-  area.remove(FORM_STORAGE_KEY);
-}
-
-let otherToolListener = null;
-
-function armClearWhenAnotherToolIsChosen() {
-  if (otherToolListener) {
-    document.removeEventListener("click", otherToolListener, true);
-  }
-  otherToolListener = function (event) {
-    const button = event.target && event.target.closest ? event.target.closest("button") : null;
-    if (!button) {
-      return;
-    }
-    const text = (button.innerText || "").replace(/\s+/g, " ").trim();
-    if (text === SEARCH_MENU_LABEL || text === "< Back") {
-      if (text === SEARCH_MENU_LABEL) {
-        document.removeEventListener("click", otherToolListener, true);
-        otherToolListener = null;
-      }
-      return;
-    }
-    if (!button.classList.contains("menuButton") && !button.classList.contains("dialogButton")) {
-      return;
-    }
-    document.removeEventListener("click", otherToolListener, true);
-    otherToolListener = null;
-    clearFormState();
-  };
-  setTimeout(function () {
-    if (otherToolListener) {
-      document.addEventListener("click", otherToolListener, true);
-    }
-  }, 0);
+  return new Promise(function (resolve) {
+    area.get(MEMORY_KEY, function (value) {
+      resolve(value && value[MEMORY_KEY] ? value[MEMORY_KEY] : emptyMemory());
+    });
+  });
 }
 
 const MAX_SUGGESTIONS = 40;
@@ -400,13 +375,13 @@ function renderOutputs(results, row, dateText, registration, includeUnitedKingdo
 }
 
 async function loadEvents(data) {
-  const current = profileEvents(data && data.generalizedData);
+  const current = profileEventsFromPage(data);
   if (hasProfileEvents(current)) {
     return current;
   }
   try {
     const saved = await getLatestPersonData();
-    const fromSaved = profileEvents(saved && saved.generalizedData);
+    const fromSaved = profileEventsFromPage(saved);
     if (hasProfileEvents(fromSaved)) {
       return fromSaved;
     }
@@ -416,21 +391,31 @@ async function loadEvents(data) {
   return profileEvents(null);
 }
 
-async function setupLondonLocationsMenu(data, backFunction) {
+async function setupLondonLocationsMenu(data, backFunction, hostOptions) {
+  const options = hostOptions || {};
   const previousWidth = overrideMenuWidth("540px");
-  const events = await loadEvents(data);
+  let tabId = options.tabId != null ? options.tabId : "popup";
+  let pageData = data;
+  let memory = await loadMemory();
+  let pageWikiId = wikiIdFromPage(pageData);
+  let resolved = resolveForm(memory, tabId, pageWikiId);
+  memory = resolved.memory;
+  let formWikiId = resolved.form.wikiId || "";
+  let mismatch = resolved.mismatch;
+  let events = profileEventsFromPage(pageData);
   const allowFill = canFillWikiTreeEdit(data);
-  const savedForm = await loadFormState();
-  const edits = (savedForm && savedForm.edits) || {};
-  let marriageIndex = savedForm && savedForm.marriageIndex ? savedForm.marriageIndex : 0;
-  let includeUnitedKingdom = Boolean(savedForm && savedForm.includeUnitedKingdom);
+  const savedForm = resolved.form;
+  const edits = savedForm.edits || {};
+  let marriageIndex = savedForm.marriageIndex || 0;
+  let includeUnitedKingdom = Boolean(savedForm.includeUnitedKingdom);
 
   const menu = beginMainMenu();
   addBackMenuItem(menu, function () {
     saveForm();
-    armClearWhenAnotherToolIsChosen();
     overrideMenuWidth(previousWidth || "350px");
-    backFunction();
+    if (backFunction) {
+      backFunction();
+    }
   });
 
   const prefillRow = document.createElement("div");
@@ -457,12 +442,38 @@ async function setupLondonLocationsMenu(data, backFunction) {
     }
   }
 
+  const instructionsButton = document.createElement("button");
+  instructionsButton.type = "button";
+  instructionsButton.className = "dialogButton";
+  instructionsButton.textContent = "Instructions";
+  instructionsButton.style.margin = "4px 10px";
+  menu.list.appendChild(instructionsButton);
+  const instructions = document.createElement("div");
+  instructions.className = "londonLocNote";
+  instructions.hidden = true;
+  instructions.innerText = instructionText();
+  menu.list.appendChild(instructions);
+  instructionsButton.onclick = function () {
+    instructions.hidden = !instructions.hidden;
+  };
+
+  const mismatchBanner = document.createElement("div");
+  mismatchBanner.className = "londonLocMismatch";
+  mismatchBanner.hidden = true;
+  menu.list.appendChild(mismatchBanner);
+
   const clearAll = document.createElement("button");
   clearAll.type = "button";
   clearAll.className = "dialogButton";
   clearAll.textContent = "Clear all";
   clearAll.style.margin = "4px 10px 8px 10px";
   menu.list.appendChild(clearAll);
+  const clearMemory = document.createElement("button");
+  clearMemory.type = "button";
+  clearMemory.className = "dialogButton";
+  clearMemory.textContent = "Clear memory";
+  clearMemory.style.margin = "4px 10px 8px 0";
+  menu.list.appendChild(clearMemory);
 
   const sections = document.createElement("div");
   menu.list.appendChild(sections);
@@ -661,8 +672,9 @@ async function setupLondonLocationsMenu(data, backFunction) {
     return section;
   }
 
-  function saveForm() {
-    saveFormState({
+  function currentForm() {
+    return {
+      wikiId: formWikiId || pageWikiId || "",
       ticks: {
         birth: ticks.birth.checked,
         marriage: ticks.marriage.checked,
@@ -671,32 +683,101 @@ async function setupLondonLocationsMenu(data, backFunction) {
       marriageIndex: marriageIndex,
       includeUnitedKingdom: includeUnitedKingdom,
       edits: edits,
-    });
+    };
   }
 
-  function onTicksChanged() {
+  function saveForm() {
+    const form = currentForm();
+    formWikiId = form.wikiId;
+    memory = saveTab(memory, tabId, form);
+    return persistMemory(memory);
+  }
+
+  function showMismatch() {
+    const different = Boolean(mismatch && pageWikiId && formWikiId && pageWikiId !== formWikiId);
+    mismatchBanner.hidden = !different;
+    if (different) {
+      mismatchBanner.textContent = "These entries belong to a different person (" + formWikiId + "). Press Clear all.";
+    }
+  }
+
+  function applyForm(form) {
+    for (const key of Object.keys(edits)) {
+      delete edits[key];
+    }
+    Object.assign(edits, (form && form.edits) || {});
+    marriageIndex = form && form.marriageIndex ? form.marriageIndex : 0;
+    includeUnitedKingdom = Boolean(form && form.includeUnitedKingdom);
+    formWikiId = (form && form.wikiId) || pageWikiId || "";
+    for (const role of ROLES) {
+      ticks[role.id].checked = Boolean(form && form.ticks && form.ticks[role.id]);
+    }
+  }
+
+  function onTicksChanged(roleId) {
+    delete edits[roleId];
     renderSections();
     saveForm();
   }
 
   for (const role of ROLES) {
-    ticks[role.id].addEventListener("change", onTicksChanged);
+    ticks[role.id].addEventListener("change", function () {
+      onTicksChanged(role.id);
+    });
   }
   clearAll.onclick = function () {
-    for (const role of ROLES) {
-      ticks[role.id].checked = false;
-    }
-    includeUnitedKingdom = false;
-    marriageIndex = 0;
-    for (const key of Object.keys(edits)) {
-      delete edits[key];
-    }
-    clearFormState();
+    applyForm(blankForm(pageWikiId));
+    mismatch = false;
+    showMismatch();
+    saveForm();
     renderSections();
   };
+  clearMemory.onclick = function () {
+    const confirmed = window.confirm("Clear every remembered person? This cannot be undone.");
+    if (!confirmed) {
+      return;
+    }
+    memory = clearPeople(memory);
+    memory = saveTab(memory, tabId, currentForm());
+    persistMemory(memory);
+  };
 
+  async function setPage(nextData, nextTabId) {
+    await saveForm();
+    if (nextTabId != null) {
+      tabId = nextTabId;
+    }
+    pageData = nextData || pageData;
+    events = profileEventsFromPage(pageData);
+    pageWikiId = wikiIdFromPage(pageData);
+    const next = resolveForm(memory, tabId, pageWikiId);
+    memory = next.memory;
+    applyForm(next.form);
+    mismatch = next.mismatch;
+    showMismatch();
+    await persistMemory(memory);
+    renderSections();
+  }
+
+  showMismatch();
   renderSections();
   endMainMenu(menu);
+  return { setPage: setPage };
+}
+
+function instructionText() {
+  return [
+    "Prefill: tick Birth, Marriage or Death to fill that event's place and date from the open page. With nothing ticked, the section stays blank.",
+    "Dates: an exact day selects one county. abt means one year either side. bef and aft list every period the date could fall in, each with a reason.",
+    "Sections: up to three numbered sections, one for each ticked event. If a marriage has several spouses, pick one in that section.",
+    "Registration record: adds the words Registration District to the Bio Narrative only. The location field keeps the place name.",
+    "Include United Kingdom: one shared tick for every section. From 1801 it adds United Kingdom and keeps England in the narrative. Earlier dates leave it off and say why.",
+    "Result goes to: chooses Birth, Marriage or Death location. Fill writes that field on a WikiTree edit page.",
+    "Clear section: blanks that section. Tick the event again to refill it from this page.",
+    "Clear all: resets the form on this page, including the prefill ticks and United Kingdom.",
+    "Clear memory: forgets every remembered person, after you confirm. Memory is also cleared when the browser closes.",
+    "Red warning: the entries on screen are for a different WikiTree person than this page. Press Clear all.",
+  ].join("\n\n");
 }
 
 export { setupLondonLocationsMenu };

@@ -26,13 +26,27 @@ import { addMenuItem } from "/base/browser/popup/popup_menu_building.mjs";
 import { registerSearchMenuItemFunction } from "/base/browser/popup/popup_search.mjs";
 import { SEARCH_MENU_LABEL } from "../core/london_location.mjs";
 import { setupLondonLocationsMenu } from "./londonlocations_menu.mjs";
+import { openLondonLocationsPanel } from "./londonlocations_panel_open.mjs";
 
 // Registered like a search site so the item appears in every site's search
-// submenu. It opens the location picker instead of a website. shouldShow is
-// always true so a date or country filter cannot hide it.
+// submenu. Chrome opens the side panel and Firefox opens the sidebar. Other
+// browsers keep the picker in this popup.
 function addLondonLocationsMenuItem(menu, data, backFunction) {
   addMenuItem(menu, SEARCH_MENU_LABEL, function () {
-    setupLondonLocationsMenu(data, backFunction);
+    openLondonLocationsPanel(null).then(async function (opened) {
+      if (opened) {
+        window.close();
+        return;
+      }
+      let tabId = null;
+      try {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        tabId = tabs && tabs[0] ? tabs[0].id : null;
+      } catch (error) {
+        tabId = null;
+      }
+      setupLondonLocationsMenu(data, backFunction, { tabId: tabId });
+    });
   });
   return true;
 }

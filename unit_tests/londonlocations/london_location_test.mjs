@@ -30,8 +30,17 @@ import {
   matchPlaceString,
   buildOutputs,
   profileEvents,
+  profileEventsFromPage,
   canFillWikiTreeEdit,
 } from "../../extension/site/londonlocations/core/london_location.mjs";
+import {
+  MEMORY_LIMIT,
+  blankForm,
+  emptyMemory,
+  rememberPerson,
+  resolveForm,
+  wikiIdFromPage,
+} from "../../extension/site/londonlocations/core/londonlocations_state.mjs";
 
 function check(testManager, name, condition, cause) {
   testManager.results.totalTestsRun++;
@@ -170,7 +179,8 @@ async function runTests(testManager) {
   check(
     testManager,
     "30 Apr 1965 registration",
-    single(reg1965).location === "Battersea Registration District, Greater London, England",
+    single(reg1965).location === "Battersea, Greater London, England" &&
+      single(reg1965).narrative === "Battersea Registration District, Greater London",
     single(reg1965).location
   );
 
@@ -321,7 +331,7 @@ async function runTests(testManager) {
   check(
     testManager,
     "east london rd",
-    single(east).location === "East London Registration District, City of London, England" &&
+    single(east).location === "East London, City of London, England" &&
       single(east).category === null &&
       single(east).narrative === "East London Registration District in the City of London",
     JSON.stringify(single(east))
@@ -333,7 +343,7 @@ async function runTests(testManager) {
   check(
     testManager,
     "hackney registration",
-    single(hackney).location === "Hackney Registration District, Middlesex, England" &&
+    single(hackney).location === "Hackney, Middlesex, England" &&
       single(hackney).category === "Hackney, Middlesex (London)" &&
       single(hackney).narrative === "Hackney Registration District, Middlesex",
     JSON.stringify(single(hackney))
@@ -505,6 +515,101 @@ async function runTests(testManager) {
     "uk off",
     single(outputs("St Pancras", "8 Apr 1815")).location === "St Pancras, Middlesex, England",
     single(outputs("St Pancras", "8 Apr 1815")).location
+  );
+
+  const hampsteadReg = buildOutputs(row("Hampstead"), "3 Dec 1904", true, { includeUnitedKingdom: true });
+  check(
+    testManager,
+    "hampstead registration location omits district",
+    single(hampsteadReg).location === "Hampstead, London, England, United Kingdom" &&
+      !single(hampsteadReg).location.includes("Registration District") &&
+      single(hampsteadReg).narrative === "Hampstead Registration District, London, England, United Kingdom",
+    single(hampsteadReg).location + " / " + single(hampsteadReg).narrative
+  );
+
+  const parramatta = profileEventsFromPage({
+    extractedData: {
+      wikiId: "Oakes-12",
+      birthLocation: "Parramatta, Colony of New South Wales",
+      birthDate: "9 Apr 1815",
+    },
+    generalizedData: { personRepoRef: "Oakes-12" },
+  });
+  check(
+    testManager,
+    "non-london birth is kept",
+    parramatta.birth &&
+      parramatta.birth.placeText === "Parramatta, Colony of New South Wales" &&
+      parramatta.birth.dateText === "9 Apr 1815" &&
+      parramatta.birth.matched === false,
+    JSON.stringify(parramatta.birth)
+  );
+  check(
+    testManager,
+    "oakes wiki id",
+    wikiIdFromPage({
+      extractedData: { url: "https://www.wikitree.com/wiki/Oakes-12" },
+      generalizedData: {},
+    }) === "Oakes-12",
+    "wiki id"
+  );
+
+  let memory = emptyMemory();
+  memory = rememberPerson(
+    memory,
+    "A-1",
+    Object.assign(blankForm("A-1"), { ticks: { birth: true, marriage: false, death: false } })
+  );
+  const firstVisit = resolveForm(memory, 10, "Oakes-12");
+  check(
+    testManager,
+    "new profile starts blank",
+    firstVisit.form.wikiId === "Oakes-12" && !firstVisit.form.ticks.birth,
+    JSON.stringify(firstVisit.form.ticks)
+  );
+  const withBirth = Object.assign(blankForm("Oakes-12"), {
+    edits: {
+      birth: {
+        place: "Parramatta, Colony of New South Wales",
+        date: "9 Apr 1815",
+        registration: false,
+        fillField: "birthLocation",
+      },
+    },
+  });
+  memory = firstVisit.memory;
+  memory = resolveForm(memory, 10, "Oakes-12").memory;
+  memory.tabs["10"] = withBirth;
+  memory = rememberPerson(memory, "Oakes-12", withBirth);
+  const otherTab = resolveForm(memory, 11, "Smith-1");
+  check(
+    testManager,
+    "tabs do not share entries",
+    otherTab.form.wikiId === "Smith-1" && !(otherTab.form.edits && otherTab.form.edits.birth),
+    JSON.stringify(otherTab.form)
+  );
+  const back = resolveForm(memory, 10, "A-1");
+  check(
+    testManager,
+    "back restores earlier person",
+    back.form.wikiId === "A-1" && back.form.ticks.birth === true && !back.mismatch,
+    JSON.stringify(back.form)
+  );
+  const stranger = resolveForm(memory, 10, "New-9");
+  check(
+    testManager,
+    "unknown person warns",
+    stranger.mismatch === true && stranger.form.wikiId === "Oakes-12",
+    JSON.stringify(stranger)
+  );
+  for (let index = 0; index < MEMORY_LIMIT + 1; index++) {
+    memory = rememberPerson(memory, "Person-" + index, blankForm("Person-" + index));
+  }
+  check(
+    testManager,
+    "memory keeps 40",
+    memory.people.length === MEMORY_LIMIT && memory.people[0].wikiId !== "Person-0",
+    String(memory.people.length) + " " + memory.people[0].wikiId
   );
 
   check(

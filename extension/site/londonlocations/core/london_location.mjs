@@ -428,11 +428,16 @@ function unitedKingdomStatus(range, includeUnitedKingdom) {
   };
 }
 
+function locationPlaceName(row) {
+  const stripped = row.name.replace(/\s+Registration District$/i, "").trim();
+  return stripped || row.name;
+}
+
 function variantFor(row, county, registration, includeUnitedKingdom) {
-  const label = placeLabel(row, registration);
+  const narrativeLabel = placeLabel(row, registration);
   const category = categoryFor(row, county);
-  let location = formatLocation(label, county);
-  const narrative = formatNarrative(label, county, includeUnitedKingdom);
+  let location = formatLocation(locationPlaceName(row), county);
+  const narrative = formatNarrative(narrativeLabel, county, includeUnitedKingdom);
   if (includeUnitedKingdom) {
     location = location + ", United Kingdom";
   }
@@ -625,6 +630,34 @@ function profileEvents(gd) {
   return empty;
 }
 
+function profileEventsFromPage(data) {
+  const gd = (data && data.generalizedData) || {};
+  const ed = (data && data.extractedData) || {};
+  const merged = Object.assign({}, gd);
+  if (!placeTextFrom(merged.birthPlace) && ed.birthLocation) {
+    merged.birthPlace = ed.birthLocation;
+    if (!merged.birthDate && ed.birthDate) {
+      merged.birthDate = ed.birthDate;
+    }
+  }
+  if (!placeTextFrom(merged.deathPlace) && ed.deathLocation) {
+    merged.deathPlace = ed.deathLocation;
+    if (!merged.deathDate && ed.deathDate) {
+      merged.deathDate = ed.deathDate;
+    }
+  }
+  if ((!merged.spouses || !merged.spouses.length) && ed.marriageLocation) {
+    merged.spouses = [
+      {
+        marriagePlace: ed.marriageLocation,
+        marriageDate: ed.marriageDate || "",
+        name: "Marriage",
+      },
+    ];
+  }
+  return profileEvents(merged);
+}
+
 function hasProfileEvents(events) {
   if (!events) {
     return false;
@@ -655,6 +688,7 @@ export {
   parseLocationDate,
   buildOutputs,
   profileEvents,
+  profileEventsFromPage,
   hasProfileEvents,
   canFillWikiTreeEdit,
 };
