@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#1e1b4b" />
+    <title>Sleighing the Season — Studio 54 Winter Wonderland</title>
+    <meta
+      name="description"
+      content="A cheeky festive disco-vogue holiday card. Sleighing the Season—Because Boring Holidays Are Out of Style."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Outfit:wght@300;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --velvet: #1e1b4b;
+        --ink: #0c0a1d;
+        --magenta: #ec4899;
+        --gold: #f59e0b;
+        --cream: #f8e7c1;
+        --line: rgba(245, 158, 11, 0.55);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--ink);
+        color: var(--cream);
+        font-family: Outfit, "Avenir Next", "Segoe UI", sans-serif;
+      }
+
+      button,
+      input,
+      textarea {
+        font: inherit;
+        color: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .stage {
+        position: relative;
+        min-height: 100dvh;
+        overflow: hidden;
+        background: radial-gradient(ellipse at 50% 110%, rgba(236, 72, 153, 0.22), transparent 46%),
+          radial-gradient(ellipse at 50% 0%, rgba(245, 158, 11, 0.16), transparent 40%), var(--ink);
+      }
+
+      .scene-blur,
+      .scene {
+        position: fixed;
+        pointer-events: none;
+        user-select: none;
+      }
+
+      .scene-blur {
+        inset: -6%;
+        width: 112%;
+        height: 112%;
+        object-fit: cover;
+        filter: blur(26px) saturate(1.35) brightness(0.48);
+      }
+
+      .scene {
+        top: 0;
+        left: 50%;
+        height: 100dvh;
+        width: auto;
+        max-width: none;
+        transform: translateX(-50%);
+        filter: saturate(1.12) contrast(1.04);
+        animation: drift 26s ease-in-out infinite alternate;
+      }
+
+      .beams,
+      .neon-wash,
+      .vignette {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      .beams {
+        inset: -30%;
+        background: repeating-conic-gradient(
+          from 0deg at 50% 38%,
+          transparent 0deg 11deg,
+          rgba(245, 158, 11, 0.16) 11deg 12.1deg,
+          transparent 12.1deg 22deg,
+          rgba(236, 72, 153, 0.14) 22deg 23.1deg
+        );
+        mix-blend-mode: screen;
+        animation: spin 32s linear infinite;
+        -webkit-mask-image: radial-gradient(circle at 50% 36%, #000 0%, transparent 58%);
+        mask-image: radial-gradient(circle at 50% 36%, #000 0%, transparent 58%);
+      }
+
+      .neon-wash {
+        background: radial-gradient(circle at 22% 68%, rgba(236, 72, 153, 0.34), transparent 24%),
+          radial-gradient(circle at 78% 64%, rgba(245, 158, 11, 0.28), transparent 22%);
+        mix-blend-mode: screen;
+        animation: pulse 3.4s ease-in-out infinite;
+      }
+
+      .vignette {
+        background: linear-gradient(to top, rgba(8, 6, 20, 0.72) 0%, transparent 28%, rgba(8, 6, 20, 0.28) 100%);
+      }
+
+      canvas#fx {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 4;
+      }
+
+      .top {
+        position: absolute;
+        z-index: 6;
+        top: 0.85rem;
+        left: 0.85rem;
+        right: 0.85rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+
+      .eyebrow {
+        margin: 0;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        font-size: 0.68rem;
+        font-weight: 500;
+        color: var(--cream);
+        text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+      }
+
+      .mini-ball {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: conic-gradient(
+          #fff 0 12%,
+          #ec4899 0 24%,
+          #1e1b4b 0 40%,
+          #f59e0b 0 54%,
+          #fff 0 68%,
+          #c4b5fd 0 82%,
+          #f59e0b 0 100%
+        );
+        box-shadow: 0 0 10px rgba(245, 158, 11, 0.8);
+        animation: spin 3.5s linear infinite;
+        flex: none;
+      }
+
+      .switch,
+      .bubbly {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        border-radius: 999px;
+        padding: 0.42rem 0.8rem;
+        backdrop-filter: blur(8px);
+      }
+
+      .switch {
+        border: 1px solid rgba(236, 72, 153, 0.9);
+        background: rgba(30, 27, 75, 0.62);
+        box-shadow: 0 0 16px rgba(236, 72, 153, 0.45);
+      }
+
+      .switch-track {
+        width: 38px;
+        height: 22px;
+        border-radius: 999px;
+        border: 1px solid var(--magenta);
+        background: #120e28;
+        position: relative;
+        box-shadow: inset 0 0 8px rgba(236, 72, 153, 0.45);
+      }
+
+      .switch-thumb {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--gold);
+        transition: transform 0.2s ease;
+      }
+
+      .switch[aria-pressed="true"] .switch-thumb {
+        transform: translateX(16px);
+        background: var(--magenta);
+        box-shadow: 0 0 8px var(--magenta);
+      }
+
+      .eq {
+        display: flex;
+        align-items: flex-end;
+        gap: 2px;
+        height: 16px;
+        width: 22px;
+      }
+
+      .eq i {
+        display: block;
+        width: 3px;
+        height: 45%;
+        border-radius: 2px;
+        background: linear-gradient(to top, var(--magenta), var(--gold));
+        transform-origin: bottom;
+      }
+
+      .eq i:nth-child(1) {
+        height: 40%;
+      }
+
+      .eq i:nth-child(2) {
+        height: 75%;
+      }
+
+      .eq i:nth-child(3) {
+        height: 100%;
+      }
+
+      .eq i:nth-child(4) {
+        height: 55%;
+      }
+
+      .eq i:nth-child(5) {
+        height: 85%;
+      }
+
+      .eq-label,
+      .bubbly {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .bubbly {
+        border: 1px solid var(--gold);
+        background: rgba(12, 10, 29, 0.55);
+        color: var(--gold);
+        box-shadow: 0 0 16px rgba(245, 158, 11, 0.35);
+      }
+
+      .bubbly:hover,
+      .switch:hover,
+      .text-btn:hover,
+      .invite-chip:hover {
+        filter: brightness(1.12);
+      }
+
+      .mast {
+        position: absolute;
+        z-index: 5;
+        top: 4.6rem;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(920px, 94vw);
+        text-align: center;
+        pointer-events: none;
+      }
+
+      h1 {
+        margin: 0;
+        font-family: "Bodoni Moda", Didot, "Bodoni MT", serif;
+        font-weight: 500;
+        font-size: clamp(2.5rem, 6.4vw, 5.4rem);
+        letter-spacing: -0.03em;
+        line-height: 0.88;
+        color: #fff6df;
+        text-shadow: 0 0 22px rgba(245, 158, 11, 0.45), 0 10px 28px rgba(0, 0, 0, 0.65);
+      }
+
+      .tag {
+        margin: 0.45rem 0 0;
+        font-size: clamp(0.95rem, 2vw, 1.25rem);
+        font-weight: 300;
+        letter-spacing: 0.04em;
+        text-shadow: 0 4px 16px rgba(0, 0, 0, 0.75);
+      }
+
+      .figures {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        pointer-events: none;
+      }
+
+      .figure {
+        position: absolute;
+        bottom: 0;
+        height: min(84vh, 880px);
+        padding: 0;
+        border: 0;
+        background: transparent;
+        pointer-events: auto;
+      }
+
+      .figure.lucien {
+        left: max(-2vw, calc(50% - 560px));
+      }
+
+      .figure.mateo {
+        right: max(-2vw, calc(50% - 540px));
+      }
+
+      .figure img {
+        height: 100%;
+        width: auto;
+        display: block;
+        transform-origin: 50% 88%;
+        transition: transform 0.48s cubic-bezier(0.18, 1.55, 0.32, 1), filter 0.35s ease;
+        filter: drop-shadow(0 22px 18px rgba(0, 0, 0, 0.5));
+      }
+
+      .figure.lucien.struck img {
+        transform: translateY(-4%) rotate(-13deg) scale(1.06);
+        filter: drop-shadow(0 0 18px rgba(236, 72, 153, 0.85)) drop-shadow(0 22px 18px rgba(0, 0, 0, 0.5)) saturate(1.3)
+          brightness(1.12);
+      }
+
+      .figure.mateo.struck img {
+        transform: translateY(-3.5%) rotate(12deg) scale(1.06);
+        filter: drop-shadow(0 0 18px rgba(245, 158, 11, 0.85)) drop-shadow(0 22px 18px rgba(0, 0, 0, 0.5)) saturate(1.3)
+          brightness(1.12);
+      }
+
+      .figure:focus-visible,
+      .switch:focus-visible,
+      .bubbly:focus-visible,
+      .text-btn:focus-visible,
+      .invite-chip:focus-visible,
+      input:focus-visible,
+      textarea:focus-visible {
+        outline: 2px solid var(--gold);
+        outline-offset: 3px;
+      }
+
+      .hint {
+        margin: 0.4rem 0 0;
+        font-size: 0.75rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--gold);
+        text-shadow: 0 2px 10px #000;
+      }
+
+      .hint.gone {
+        opacity: 0;
+        transition: opacity 0.4s ease;
+      }
+
+      .card {
+        position: absolute;
+        z-index: 6;
+        left: 50%;
+        bottom: 0.9rem;
+        transform: translateX(-50%);
+        width: min(440px, calc(100% - 1.2rem));
+        padding: 0.85rem 0.9rem 0.75rem;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(30, 27, 75, 0.86), rgba(12, 8, 28, 0.92));
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(245, 158, 11, 0.15);
+        backdrop-filter: blur(12px);
+      }
+
+      .card h2 {
+        margin: 0 0 0.55rem;
+        font-family: "Bodoni Moda", Didot, serif;
+        font-weight: 500;
+        font-size: 1.25rem;
+        letter-spacing: 0.01em;
+      }
+
+      .fields {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.45rem 0.6rem;
+      }
+
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        font-size: 0.68rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: rgba(248, 231, 193, 0.78);
+      }
+
+      label.message {
+        grid-column: 1 / -1;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid rgba(245, 158, 11, 0.35);
+        background: rgba(255, 255, 255, 0.04);
+        padding: 0.48rem 0.6rem;
+        letter-spacing: 0;
+        text-transform: none;
+        font-size: 0.95rem;
+        font-weight: 400;
+        color: #fff8ea;
+      }
+
+      textarea {
+        resize: vertical;
+        min-height: 4.4rem;
+      }
+
+      .card.sealed input,
+      .card.sealed textarea {
+        border-color: transparent;
+        background: transparent;
+        padding-left: 0;
+        resize: none;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-top: 0.55rem;
+        align-items: center;
+      }
+
+      .text-btn {
+        border-radius: 999px;
+        border: 1px solid rgba(248, 231, 193, 0.35);
+        background: transparent;
+        padding: 0.38rem 0.7rem;
+        font-size: 0.75rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .text-btn.gold {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+
+      .status {
+        margin-left: auto;
+        min-height: 1em;
+        font-size: 0.75rem;
+        color: var(--gold);
+      }
+
+      .invite-chip {
+        margin-top: 0.6rem;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        text-align: left;
+        border-radius: 12px;
+        border: 1px solid rgba(245, 158, 11, 0.35);
+        background: rgba(0, 0, 0, 0.25);
+        padding: 0.35rem;
+      }
+
+      .invite-chip img {
+        width: 42px;
+        height: 58px;
+        object-fit: cover;
+        border-radius: 4px;
+      }
+
+      .invite-chip span {
+        display: block;
+      }
+
+      .invite-chip small {
+        display: block;
+        color: rgba(248, 231, 193, 0.7);
+        letter-spacing: 0.04em;
+      }
+
+      .credits {
+        margin: 0.45rem 0 0;
+        font-size: 0.68rem;
+        color: rgba(248, 231, 193, 0.62);
+      }
+
+      .credits a {
+        color: var(--gold);
+      }
+
+      .caption {
+        position: fixed;
+        z-index: 8;
+        left: 50%;
+        top: 14.2rem;
+        margin: 0;
+        max-width: min(280px, 86vw);
+        padding: 0.45rem 0.75rem;
+        border-radius: 999px;
+        background: rgba(12, 8, 28, 0.86);
+        border: 1px solid var(--gold);
+        color: var(--cream);
+        font-family: "Bodoni Moda", Didot, serif;
+        font-size: 1.05rem;
+        text-align: center;
+        pointer-events: none;
+        animation: rise 2.1s ease forwards;
+        box-shadow: 0 0 18px rgba(245, 158, 11, 0.35);
+      }
+
+      .flash {
+        position: fixed;
+        inset: 0;
+        background: #fff;
+        opacity: 0;
+        pointer-events: none;
+        z-index: 7;
+      }
+
+      .flash.go {
+        animation: flash 0.45s ease-out;
+      }
+
+      dialog {
+        border: 1px solid var(--line);
+        background: #120e24;
+        color: var(--cream);
+        border-radius: 16px;
+        padding: 0.75rem;
+        width: min(460px, 94vw);
+      }
+
+      dialog::backdrop {
+        background: rgba(8, 6, 20, 0.75);
+      }
+
+      dialog img {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 8px;
+      }
+
+      .dialog-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.6rem;
+        margin-top: 0.6rem;
+      }
+
+      .dialog-bar a {
+        color: var(--gold);
+      }
+
+      .sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        border: 0;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes drift {
+        from {
+          transform: translateX(-50%) scale(1);
+        }
+        to {
+          transform: translateX(-50%) scale(1.045);
+        }
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 0.55;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+
+      @keyframes flash {
+        0% {
+          opacity: 0.88;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+
+      @keyframes rise {
+        0% {
+          opacity: 0;
+          transform: translateX(-50%) translateY(10px);
+        }
+        15% {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
+        }
+        75% {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
+        }
+        100% {
+          opacity: 0;
+          transform: translateX(-50%) translateY(-28px);
+        }
+      }
+
+      @media (max-width: 800px) {
+        .stage {
+          overflow-x: hidden;
+          overflow-y: auto;
+        }
+
+        .eyebrow {
+          display: none;
+        }
+
+        .mast,
+        .figures,
+        .card {
+          position: relative;
+          left: auto;
+          right: auto;
+          top: auto;
+          bottom: auto;
+          transform: none;
+        }
+
+        .mast {
+          z-index: 5;
+          width: auto;
+          padding: 4.3rem 0.9rem 0;
+        }
+
+        h1 {
+          font-size: 2.35rem;
+        }
+
+        .figures {
+          display: flex;
+          justify-content: center;
+          align-items: flex-end;
+          height: 46vh;
+          margin-top: 0.2rem;
+        }
+
+        .figure {
+          position: relative;
+          height: 46vh;
+          left: auto;
+          right: auto;
+        }
+
+        .figure.lucien {
+          margin-right: -14vw;
+        }
+
+        .figure.mateo {
+          margin-left: -14vw;
+        }
+
+        .card {
+          width: calc(100% - 1rem);
+          margin: -3.2rem auto 1rem;
+        }
+
+        .caption {
+          top: 11.6rem;
+        }
+
+        .fields {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .scene,
+        .beams,
+        .neon-wash,
+        .mini-ball {
+          animation: none;
+        }
+
+        .figure img {
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="stage">
+      <img class="scene-blur" src="assets/tree.jpg" alt="" />
+      <img class="scene" src="assets/tree.jpg" alt="" />
+      <div class="beams" aria-hidden="true"></div>
+      <div class="neon-wash" aria-hidden="true"></div>
+      <div class="vignette" aria-hidden="true"></div>
+      <canvas id="fx" aria-hidden="true"></canvas>
+
+      <header class="top">
+        <button id="sound" class="switch" type="button" aria-pressed="false" aria-label="Play the disco track">
+          <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+          <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="eq-label">Play</span>
+        </button>
+        <p class="eyebrow"><span class="mini-ball" aria-hidden="true"></span> Studio 54 · Winter Wonderland</p>
+        <button id="bubbly" class="bubbly" type="button">Pop the Bubbly</button>
+      </header>
+
+      <div class="mast">
+        <h1>Sleighing the Season</h1>
+        <p class="tag">Because boring holidays are out of style.</p>
+        <p class="hint" id="hint">Tap a coat to strike a pose</p>
+      </div>
+
+      <div class="figures">
+        <button
+          class="figure lucien"
+          type="button"
+          id="lucien"
+          aria-label="Lucien in a magenta sequin coat. Strike a pose."
+        >
+          <img src="assets/lucien.png" alt="Lucien, in a hot magenta sequin tailcoat, holding a coupe glass" />
+        </button>
+        <button class="figure mateo" type="button" id="mateo" aria-label="Mateo in a gold velvet coat. Strike a pose.">
+          <img src="assets/mateo.png" alt="Mateo, in a gold velvet coat, raising a coupe glass" />
+        </button>
+      </div>
+      <section class="card" id="card" aria-label="Personal greeting">
+        <h2>A note from the penthouse</h2>
+        <div class="fields">
+          <label>To <input id="to" name="to" autocomplete="name" placeholder="the lucky one" /></label>
+          <label>From <input id="from" name="from" autocomplete="name" placeholder="your names" /></label>
+          <label class="message">
+            Message
+            <textarea id="message" name="message" rows="3"></textarea>
+          </label>
+        </div>
+        <div class="actions">
+          <button class="text-btn gold" type="button" id="seal">Seal the card</button>
+          <button class="text-btn" type="button" id="copy">Copy greeting</button>
+          <button class="text-btn" type="button" id="share">Share</button>
+          <span class="status" id="status" role="status"></span>
+        </div>
+        <button class="invite-chip" type="button" id="openInvite">
+          <img src="assets/invitation.jpg" alt="" />
+          <span>
+            Open the invitation
+            <small>The Canva card, gold frame and all</small>
+          </span>
+        </button>
+        <p class="credits">
+          Runway portraits and the mirror-ball tree were made in Picsart. The invitation was designed in
+          <a href="https://www.canva.com/d/mxXNesNXh6sYmDW" target="_blank" rel="noopener">Canva</a>.
+        </p>
+      </section>
+    </main>
+
+    <div class="flash" id="flash" aria-hidden="true"></div>
+    <p class="sr" id="live" aria-live="polite"></p>
+
+    <dialog id="inviteDialog">
+      <img
+        src="assets/invitation.jpg"
+        alt="Invitation reading Sleighing the Season—Because Boring Holidays Are Out of Style, with two men toasting in sequin coats before a disco-ball Christmas tree."
+      />
+      <div class="dialog-bar">
+        <a href="https://www.canva.com/d/mxXNesNXh6sYmDW" target="_blank" rel="noopener">Edit in Canva</a>
+        <button class="text-btn" type="button" id="closeInvite">Close</button>
+      </div>
+    </dialog>
+
+    <script>
+      const DEFAULT_MESSAGE =
+        "Darling, the tree is a mirror ball, the coats are velvet, and the only resolution is more champagne. Happy holidays.";
+
+      const CAPTIONS = [
+        "Category is: Festive Excellence",
+        "10s Across the Board for Holiday Spirit",
+        "Serving looks colder than the North Pole",
+        "The category is: Velvet Realness",
+        "Holiday spirit? Darling, we bottled it.",
+        "Sleigh all day, sequins all night.",
+        "Cheers — make it fashion.",
+        "Mirror, mirror, on the ball.",
+      ];
+
+      const BARS = [
+        { root: 65.41, third: 4, chord: [261.63, 329.63, 392.0, 493.88] },
+        { root: 110.0, third: 3, chord: [220.0, 261.63, 329.63, 392.0] },
+        { root: 73.42, third: 3, chord: [293.66, 349.23, 440.0, 523.25] },
+        { root: 98.0, third: 4, chord: [196.0, 246.94, 293.66, 349.23] },
+      ];
+
+      const soundBtn = document.getElementById("sound");
+      const bubblyBtn = document.getElementById("bubbly");
+      const flashEl = document.getElementById("flash");
+      const live = document.getElementById("live");
+      const hint = document.getElementById("hint");
+      const card = document.getElementById("card");
+      const toEl = document.getElementById("to");
+      const fromEl = document.getElementById("from");
+      const messageEl = document.getElementById("message");
+      const statusEl = document.getElementById("status");
+      const canvas = document.getElementById("fx");
+      const ctx2d = canvas.getContext("2d");
+      const inviteDialog = document.getElementById("inviteDialog");
+
+      const disco = {
+        ctx: null,
+        master: null,
+        analyser: null,
+        noise: null,
+        bins: null,
+        playing: false,
+        step: 0,
+        next: 0,
+        timer: 0,
+        bpm: 118,
+      };
+
+      const sparks = [];
+      const drift = [];
+      let captionIndex = 0;
+      let reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      function semitone(root, steps) {
+        return root * Math.pow(2, steps / 12);
+      }
+
+      function ensureAudio() {
+        if (disco.ctx) return disco.ctx;
+        const audio = new AudioContext();
+        const master = audio.createGain();
+        master.gain.value = 0.85;
+        const comp = audio.createDynamicsCompressor();
+        comp.threshold.value = -16;
+        comp.knee.value = 16;
+        comp.ratio.value = 3;
+        comp.attack.value = 0.004;
+        comp.release.value = 0.18;
+        const analyser = audio.createAnalyser();
+        analyser.fftSize = 64;
+        analyser.smoothingTimeConstant = 0.75;
+        master.connect(comp);
+        comp.connect(analyser);
+        analyser.connect(audio.destination);
+        const noise = audio.createBuffer(1, audio.sampleRate, audio.sampleRate);
+        const data = noise.getChannelData(0);
+        for (let i = 0; i < data.length; i += 1) data[i] = Math.random() * 2 - 1;
+        disco.ctx = audio;
+        disco.master = master;
+        disco.analyser = analyser;
+        disco.noise = noise;
+        disco.bins = new Uint8Array(analyser.frequencyBinCount);
+        return audio;
+      }
+
+      function env(audio, peak, time, attack, dur) {
+        const gain = audio.createGain();
+        gain.gain.setValueAtTime(0.0001, time);
+        gain.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), time + attack);
+        gain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+        return gain;
+      }
+
+      function kick(time) {
+        const audio = disco.ctx;
+        const osc = audio.createOscillator();
+        const gain = audio.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(172, time);
+        osc.frequency.exponentialRampToValueAtTime(46, time + 0.09);
+        gain.gain.setValueAtTime(0.62, time);
+        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.28);
+        osc.connect(gain);
+        gain.connect(disco.master);
+        osc.start(time);
+        osc.stop(time + 0.3);
+      }
+
+      function bass(freq, time) {
+        const audio = disco.ctx;
+        const osc = audio.createOscillator();
+        const filter = audio.createBiquadFilter();
+        const gain = env(audio, 0.28, time, 0.012, 0.2);
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(freq, time);
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(780, time);
+        filter.frequency.exponentialRampToValueAtTime(180, time + 0.16);
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(disco.master);
+        osc.start(time);
+        osc.stop(time + 0.22);
+      }
+
+      function hat(time, open) {
+        const audio = disco.ctx;
+        const src = audio.createBufferSource();
+        const filter = audio.createBiquadFilter();
+        const gain = env(audio, open ? 0.075 : 0.04, time, 0.004, open ? 0.09 : 0.028);
+        src.buffer = disco.noise;
+        filter.type = "highpass";
+        filter.frequency.value = open ? 6000 : 8000;
+        src.connect(filter);
+        filter.connect(gain);
+        gain.connect(disco.master);
+        src.start(time);
+        src.stop(time + (open ? 0.11 : 0.05));
+      }
+
+      function clap(time) {
+        const audio = disco.ctx;
+        [0, 0.012].forEach((offset) => {
+          const src = audio.createBufferSource();
+          const filter = audio.createBiquadFilter();
+          const gain = env(audio, 0.16, time + offset, 0.004, 0.12);
+          src.buffer = disco.noise;
+          filter.type = "bandpass";
+          filter.frequency.value = 1750;
+          filter.Q.value = 0.7;
+          src.connect(filter);
+          filter.connect(gain);
+          gain.connect(disco.master);
+          src.start(time + offset);
+          src.stop(time + offset + 0.14);
+        });
+      }
+
+      function chord(freqs, time, dur, peak) {
+        const audio = disco.ctx;
+        const filter = audio.createBiquadFilter();
+        const gain = env(audio, peak, time, 0.03, dur);
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(2400, time);
+        filter.frequency.exponentialRampToValueAtTime(700, time + dur);
+        filter.connect(gain);
+        gain.connect(disco.master);
+        freqs.forEach((freq, index) => {
+          const osc = audio.createOscillator();
+          osc.type = "triangle";
+          osc.frequency.value = freq;
+          osc.detune.value = (index - 1.5) * 7;
+          osc.connect(filter);
+          osc.start(time);
+          osc.stop(time + dur + 0.02);
+        });
+      }
+
+      function popSound(time) {
+        const audio = ensureAudio();
+        const osc = audio.createOscillator();
+        const gain = env(audio, 0.2, time, 0.005, 0.22);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(620, time);
+        osc.frequency.exponentialRampToValueAtTime(140, time + 0.18);
+        osc.connect(gain);
+        gain.connect(disco.master);
+        osc.start(time);
+        osc.stop(time + 0.24);
+        const src = audio.createBufferSource();
+        const filter = audio.createBiquadFilter();
+        const noiseGain = env(audio, 0.18, time, 0.003, 0.08);
+        src.buffer = disco.noise;
+        filter.type = "highpass";
+        filter.frequency.value = 1200;
+        src.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(disco.master);
+        src.start(time);
+        src.stop(time + 0.1);
+      }
+
+      function playStep(step, time) {
+        const beat = step % 16;
+        const spec = BARS[Math.floor(step / 16) % BARS.length];
+        if (beat % 4 === 0) kick(time);
+        if (beat === 4 || beat === 12) clap(time);
+        hat(time, beat % 4 === 2);
+        if (beat % 2 === 0) {
+          const interval = [0, 12, 7, 12, 0, spec.third, 7, 12][beat / 2];
+          bass(semitone(spec.root, interval), time);
+        }
+        if (beat === 0) chord(spec.chord, time, 0.85, 0.05);
+        if (beat === 6 || beat === 14) chord(spec.chord, time, 0.11, 0.035);
+      }
+
+      function schedule() {
+        if (!disco.playing) return;
+        const audio = disco.ctx;
+        const slice = 60 / disco.bpm / 4;
+        if (!disco.next || disco.next < audio.currentTime) disco.next = audio.currentTime + 0.05;
+        while (disco.next < audio.currentTime + 0.18) {
+          playStep(disco.step, disco.next);
+          disco.next += slice;
+          disco.step = (disco.step + 1) % 64;
+        }
+        disco.timer = window.setTimeout(schedule, 40);
+      }
+
+      async function toggleSound() {
+        const audio = ensureAudio();
+        if (audio.state === "suspended") await audio.resume();
+        disco.playing = !disco.playing;
+        soundBtn.setAttribute("aria-pressed", String(disco.playing));
+        soundBtn.setAttribute("aria-label", disco.playing ? "Pause the disco track" : "Play the disco track");
+        soundBtn.querySelector(".eq-label").textContent = disco.playing ? "Pause" : "Play";
+        if (disco.playing) schedule();
+        else window.clearTimeout(disco.timer);
+      }
+
+      function resizeCanvas() {
+        const ratio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.floor(canvas.clientWidth * ratio);
+        canvas.height = Math.floor(canvas.clientHeight * ratio);
+        ctx2d.setTransform(ratio, 0, 0, ratio, 0, 0);
+      }
+
+      function seedDrift() {
+        const width = canvas.clientWidth || window.innerWidth;
+        const height = canvas.clientHeight || window.innerHeight;
+        for (let i = 0; i < 42; i += 1) {
+          drift.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            r: 1 + Math.random() * 2.2,
+            s: 0.25 + Math.random() * 0.7,
+            a: 0.25 + Math.random() * 0.6,
+          });
+        }
+      }
+
+      function burst() {
+        const colors = ["#f59e0b", "#ec4899", "#fff7d6", "#f9a8d4", "#fde68a", "#ffffff"];
+        const origins = [
+          [window.innerWidth * 0.5, window.innerHeight * 0.48],
+          [window.innerWidth * 0.22, window.innerHeight * 0.62],
+          [window.innerWidth * 0.78, window.innerHeight * 0.62],
+        ];
+        origins.forEach(([x, y]) => {
+          for (let i = 0; i < 46; i += 1) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 2.5 + Math.random() * 9;
+            const bubble = i % 4 === 0;
+            sparks.push({
+              kind: i % 5 === 0 ? "star" : bubble ? "bubble" : "glitter",
+              x,
+              y,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed - (bubble ? 1.4 : 2.2),
+              g: bubble ? -0.015 : 0.12,
+              life: 1,
+              decay: 0.005 + Math.random() * 0.006,
+              size: 4 + Math.random() * 9,
+              rot: Math.random() * Math.PI,
+              spin: (Math.random() - 0.5) * 0.28,
+              color: colors[i % colors.length],
+            });
+          }
+        });
+        if (sparks.length > 460) sparks.splice(0, sparks.length - 460);
+      }
+
+      function drawStar(x, y, radius, rotation) {
+        ctx2d.beginPath();
+        for (let i = 0; i < 5; i += 1) {
+          const outer = rotation + (i * 2 * Math.PI) / 5 - Math.PI / 2;
+          const inner = outer + Math.PI / 5;
+          ctx2d.lineTo(x + Math.cos(outer) * radius, y + Math.sin(outer) * radius);
+          ctx2d.lineTo(x + Math.cos(inner) * radius * 0.42, y + Math.sin(inner) * radius * 0.42);
+        }
+        ctx2d.closePath();
+        ctx2d.fill();
+      }
+
+      function drawFrame() {
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+        ctx2d.clearRect(0, 0, width, height);
+
+        if (!reducedMotion) {
+          drift.forEach((dot) => {
+            dot.y -= dot.s;
+            dot.x += Math.sin(dot.y * 0.02) * 0.3;
+            if (dot.y < -4) {
+              dot.y = height + 4;
+              dot.x = Math.random() * width;
+            }
+            ctx2d.globalAlpha = dot.a;
+            ctx2d.fillStyle = "#f8e7c1";
+            ctx2d.fillRect(dot.x, dot.y, dot.r, dot.r);
+          });
+        }
+
+        for (let i = sparks.length - 1; i >= 0; i -= 1) {
+          const bit = sparks[i];
+          bit.x += bit.vx;
+          bit.y += bit.vy;
+          bit.vy += bit.g;
+          bit.vx *= 0.992;
+          bit.life -= bit.decay;
+          bit.rot += bit.spin;
+          if (bit.life <= 0) {
+            sparks.splice(i, 1);
+            continue;
+          }
+          ctx2d.save();
+          ctx2d.globalAlpha = Math.max(bit.life, 0);
+          ctx2d.translate(bit.x, bit.y);
+          ctx2d.rotate(bit.rot);
+          ctx2d.fillStyle = bit.color;
+          ctx2d.strokeStyle = bit.color;
+          if (bit.kind === "star") drawStar(0, 0, bit.size, 0);
+          else if (bit.kind === "bubble") {
+            ctx2d.beginPath();
+            ctx2d.arc(0, 0, bit.size * 0.7, 0, Math.PI * 2);
+            ctx2d.lineWidth = 1.4;
+            ctx2d.stroke();
+            ctx2d.globalAlpha *= 0.8;
+            ctx2d.beginPath();
+            ctx2d.arc(-bit.size * 0.2, -bit.size * 0.2, bit.size * 0.18, 0, Math.PI * 2);
+            ctx2d.fill();
+          } else {
+            ctx2d.fillRect(-bit.size / 2, -bit.size / 6, bit.size, bit.size / 3);
+          }
+          ctx2d.restore();
+        }
+        ctx2d.globalAlpha = 1;
+
+        const bars = soundBtn.querySelectorAll(".eq i");
+        if (disco.playing && disco.analyser) {
+          disco.analyser.getByteFrequencyData(disco.bins);
+          const picks = [1, 3, 6, 10, 16];
+          bars.forEach((bar, index) => {
+            const value = disco.bins[picks[index]] / 255;
+            bar.style.height = `${28 + value * 72}%`;
+          });
+        } else {
+          bars.forEach((bar) => {
+            bar.style.height = "";
+          });
+        }
+
+        window.requestAnimationFrame(drawFrame);
+      }
+
+      function showCaption(text) {
+        const node = document.createElement("p");
+        node.className = "caption";
+        node.textContent = text;
+        document.body.appendChild(node);
+        window.setTimeout(() => node.remove(), 2100);
+        live.textContent = text;
+      }
+
+      function strike(button) {
+        button.classList.toggle("struck");
+        flashEl.classList.remove("go");
+        void flashEl.offsetWidth;
+        flashEl.classList.add("go");
+        const line = CAPTIONS[captionIndex % CAPTIONS.length];
+        captionIndex += 1;
+        showCaption(line);
+        hint.classList.add("gone");
+        if (disco.playing) {
+          const audio = disco.ctx;
+          const now = audio.currentTime;
+          chord([880, 1174, 1568], now, 0.18, 0.04);
+        }
+      }
+
+      function readCard() {
+        return {
+          to: toEl.value.trim(),
+          from: fromEl.value.trim(),
+          msg: messageEl.value.trim(),
+        };
+      }
+
+      function greetingText() {
+        const cardState = readCard();
+        const who = cardState.to ? `To ${cardState.to},\n\n` : "";
+        const sign = cardState.from ? `\n\nWith love, ${cardState.from}` : "";
+        return `Sleighing the Season—Because Boring Holidays Are Out of Style.\n\n${who}${cardState.msg}${sign}`;
+      }
+
+      function shareUrl() {
+        const url = new URL(window.location.href);
+        const cardState = readCard();
+        ["to", "from", "msg"].forEach((key) => {
+          const value = key === "msg" ? cardState.msg : cardState[key];
+          if (value) url.searchParams.set(key, value);
+          else url.searchParams.delete(key);
+        });
+        return url.toString();
+      }
+
+      function saveCard() {
+        const cardState = readCard();
+        try {
+          localStorage.setItem("sleigh-card", JSON.stringify(cardState));
+        } catch (error) {
+          /* private mode can refuse storage; the fields still work */
+        }
+      }
+
+      function loadCard() {
+        const params = new URLSearchParams(window.location.search);
+        let saved = {};
+        try {
+          saved = JSON.parse(localStorage.getItem("sleigh-card") || "{}");
+        } catch (error) {
+          saved = {};
+        }
+        toEl.value = params.get("to") || saved.to || "";
+        fromEl.value = params.get("from") || saved.from || "";
+        messageEl.value = params.get("msg") || saved.msg || DEFAULT_MESSAGE;
+      }
+
+      function setStatus(text) {
+        statusEl.textContent = text;
+        window.setTimeout(() => {
+          if (statusEl.textContent === text) statusEl.textContent = "";
+        }, 2400);
+      }
+
+      soundBtn.addEventListener("click", () => {
+        toggleSound().catch(() => setStatus("Sound needs a click again"));
+      });
+
+      bubblyBtn.addEventListener("click", async (event) => {
+        burst();
+        const audio = ensureAudio();
+        if (audio.state === "suspended") await audio.resume();
+        popSound(audio.currentTime + 0.02);
+        event.currentTarget.blur();
+      });
+
+      document.querySelectorAll(".figure").forEach((button) => {
+        button.addEventListener("click", () => strike(button));
+      });
+
+      document.getElementById("seal").addEventListener("click", (event) => {
+        const sealed = card.classList.toggle("sealed");
+        toEl.readOnly = sealed;
+        fromEl.readOnly = sealed;
+        messageEl.readOnly = sealed;
+        event.currentTarget.textContent = sealed ? "Edit the card" : "Seal the card";
+        setStatus(sealed ? "Sealed" : "Editable again");
+      });
+
+      document.getElementById("copy").addEventListener("click", async () => {
+        const text = greetingText();
+        try {
+          await navigator.clipboard.writeText(text);
+          setStatus("Greeting copied");
+        } catch (error) {
+          setStatus("Copy blocked by the browser");
+        }
+      });
+
+      document.getElementById("share").addEventListener("click", async () => {
+        saveCard();
+        const url = shareUrl();
+        const text = greetingText();
+        if (navigator.share) {
+          try {
+            await navigator.share({ title: "Sleighing the Season", text, url });
+            setStatus("Shared");
+            return;
+          } catch (error) {
+            if (error && error.name === "AbortError") return;
+          }
+        }
+        try {
+          await navigator.clipboard.writeText(`${text}\n\n${url}`);
+          setStatus("Link copied");
+        } catch (error) {
+          setStatus("Share unavailable");
+        }
+      });
+
+      [toEl, fromEl, messageEl].forEach((field) => field.addEventListener("input", saveCard));
+
+      document.getElementById("openInvite").addEventListener("click", () => inviteDialog.showModal());
+      document.getElementById("closeInvite").addEventListener("click", () => inviteDialog.close());
+
+      loadCard();
+      resizeCanvas();
+      seedDrift();
+      window.addEventListener("resize", resizeCanvas);
+      window.requestAnimationFrame(drawFrame);
+    </script>
+  </body>
+</html>
